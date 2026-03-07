@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>日语笔记首页</title>
+  <style>
+    :root {
+      --bg: #f6f8fa;
+      --card: #ffffff;
+      --text: #24292f;
+      --muted: #57606a;
+      --line: #d0d7de;
+      --link: #0969da;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .wrap {
+      max-width: 980px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    p { margin: 0 0 12px; color: var(--muted); }
+    a { color: var(--link); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 14px;
+      vertical-align: top;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+    th { background: #f6f8fa; }
+    code {
+      background: #f6f8fa;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1px 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>日语笔记首页</h1>
+      <p>公开站点，内容来自 GitHub 仓库。点“阅读”查看网页渲染，点“源文件”查看原始 Markdown。</p>
+      <p id="status">正在加载文件列表...</p>
+    </div>
+
+    <table id="notes-table" hidden>
+      <thead>
+        <tr>
+          <th>文件</th>
+          <th>阅读</th>
+          <th>源文件</th>
+        </tr>
+      </thead>
+      <tbody id="notes-body"></tbody>
+    </table>
+  </div>
+
+  <script>
+    (function () {
+      const OWNER = "linafoce";
+      const REPO = "language";
+      const BRANCH = "main";
+      const LIST_API = "https://api.github.com/repos/" + OWNER + "/" + REPO + "/git/trees/" + BRANCH + "?recursive=1";
+      const statusEl = document.getElementById("status");
+      const tableEl = document.getElementById("notes-table");
+      const bodyEl = document.getElementById("notes-body");
+
+      function isNote(path) {
+        return /^(inbox|courses|topics)\/.+\.md$/i.test(path);
+      }
+
+      fetch(LIST_API, { cache: "no-store" })
+        .then(function (resp) {
+          if (!resp.ok) {
+            throw new Error("HTTP " + resp.status);
+          }
+          return resp.json();
+        })
+        .then(function (data) {
+          const tree = Array.isArray(data.tree) ? data.tree : [];
+          const notes = tree
+            .filter(function (item) { return item.type === "blob" && isNote(item.path); })
+            .sort(function (a, b) { return a.path.localeCompare(b.path, "zh-CN"); });
+
+          if (notes.length === 0) {
+            statusEl.textContent = "未找到笔记文件。";
+            return;
+          }
+
+          notes.forEach(function (item) {
+            const tr = document.createElement("tr");
+
+            const tdPath = document.createElement("td");
+            tdPath.innerHTML = "<code>" + item.path + "</code>";
+
+            const tdViewer = document.createElement("td");
+            const viewLink = document.createElement("a");
+            viewLink.href = "viewer.html?file=" + encodeURIComponent(item.path);
+            viewLink.textContent = "阅读";
+            tdViewer.appendChild(viewLink);
+
+            const tdRaw = document.createElement("td");
+            const rawLink = document.createElement("a");
+            rawLink.href = "https://raw.githubusercontent.com/" + OWNER + "/" + REPO + "/" + BRANCH + "/" + item.path;
+            rawLink.target = "_blank";
+            rawLink.rel = "noopener noreferrer";
+            rawLink.textContent = "源文件";
+            tdRaw.appendChild(rawLink);
+
+            tr.appendChild(tdPath);
+            tr.appendChild(tdViewer);
+            tr.appendChild(tdRaw);
+            bodyEl.appendChild(tr);
+          });
+
+          statusEl.textContent = "共找到 " + notes.length + " 个 Markdown 文件。";
+          tableEl.hidden = false;
+        })
+        .catch(function (err) {
+          statusEl.textContent = "加载失败：" + err.message + "。你可以稍后刷新重试。";
+        });
+    })();
+  </script>
+</body>
+</html>

@@ -1,81 +1,147 @@
----
-layout: default
-title: 笔记阅读
----
-<main class="page-content" aria-label="Content">
-  <div class="wrapper">
-    <h1 id="note-title">加载中...</h1>
-    <p id="note-path"></p>
-    <article id="note-body"></article>
-  </div>
-</main>
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>笔记阅读</title>
+  <style>
+    :root {
+      --bg: #f6f8fa;
+      --card: #ffffff;
+      --text: #24292f;
+      --muted: #57606a;
+      --line: #d0d7de;
+    }
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5.8.1/github-markdown.min.css">
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
 
-<style>
-  #note-body.markdown-body {
-    box-sizing: border-box;
-    min-width: 200px;
-    max-width: 980px;
-    margin: 0 auto;
-    padding: 24px;
-    background: #fff;
-    border: 1px solid #d0d7de;
-    border-radius: 8px;
-  }
+    .wrap {
+      max-width: 980px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
 
-  #note-path {
-    color: #57606a;
-    font-size: 14px;
-    margin-bottom: 12px;
-  }
-
-  @media (max-width: 767px) {
-    #note-body.markdown-body {
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
       padding: 16px;
     }
-  }
-</style>
 
-<script>
-  (function () {
-    const params = new URLSearchParams(window.location.search);
-    const fileParam = params.get("file");
-    const titleEl = document.getElementById("note-title");
-    const pathEl = document.getElementById("note-path");
-    const bodyEl = document.getElementById("note-body");
-    const baseUrl = "{{ site.baseurl }}";
-
-    if (!fileParam) {
-      titleEl.textContent = "缺少 file 参数";
-      pathEl.textContent = "请从首页点击笔记链接进入。";
-      bodyEl.className = "markdown-body";
-      bodyEl.innerHTML = "<p>示例：<code>/viewer.html?file=%2Fcourses%2FN2.md</code></p>";
-      return;
+    .meta {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 14px;
     }
 
-    const decoded = decodeURIComponent(fileParam);
-    const normalizedPath = decoded.startsWith("/") ? decoded : "/" + decoded;
-    const safeTitle = normalizedPath.split("/").pop() || normalizedPath;
+    .actions {
+      margin: 0 0 16px;
+      font-size: 14px;
+    }
 
-    titleEl.textContent = safeTitle;
-    pathEl.textContent = normalizedPath;
+    .actions a { margin-right: 12px; }
 
-    fetch(baseUrl + normalizedPath, { cache: "no-store" })
-      .then((resp) => {
-        if (!resp.ok) {
-          throw new Error("HTTP " + resp.status);
-        }
-        return resp.text();
-      })
-      .then((md) => {
-        bodyEl.className = "markdown-body";
-        bodyEl.innerHTML = marked.parse(md);
-      })
-      .catch((err) => {
-        bodyEl.className = "markdown-body";
-        bodyEl.innerHTML = "<h2>加载失败</h2><p>" + err.message + "</p>";
-      });
-  })();
-</script>
+    .markdown {
+      white-space: normal;
+      word-break: break-word;
+    }
+
+    .markdown pre {
+      overflow-x: auto;
+      background: #f6f8fa;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .markdown code {
+      background: #f6f8fa;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 1px 4px;
+    }
+
+    .markdown blockquote {
+      border-left: 4px solid #d0d7de;
+      margin: 0;
+      padding-left: 12px;
+      color: #57606a;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1 id="title">加载中...</h1>
+      <p id="path" class="meta"></p>
+      <p class="actions">
+        <a href="./">返回首页</a>
+        <a id="raw-link" target="_blank" rel="noopener noreferrer">打开源文件</a>
+      </p>
+      <article id="content" class="markdown"></article>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const OWNER = "linafoce";
+      const REPO = "language";
+      const BRANCH = "main";
+      const titleEl = document.getElementById("title");
+      const pathEl = document.getElementById("path");
+      const contentEl = document.getElementById("content");
+      const rawEl = document.getElementById("raw-link");
+
+      const params = new URLSearchParams(window.location.search);
+      const file = params.get("file");
+
+      if (!file) {
+        titleEl.textContent = "缺少 file 参数";
+        pathEl.textContent = "请从首页进入。";
+        contentEl.innerHTML = "<p>示例：<code>viewer.html?file=courses%2FN2.md</code></p>";
+        return;
+      }
+
+      const normalized = file.replace(/^\/+/, "");
+      if (!/^(inbox|courses|topics)\/.+\.md$/i.test(normalized)) {
+        titleEl.textContent = "不允许的文件路径";
+        pathEl.textContent = normalized;
+        contentEl.innerHTML = "<p>仅支持 inbox/courses/topics 下的 .md 文件。</p>";
+        return;
+      }
+
+      const rawUrl = "https://raw.githubusercontent.com/" + OWNER + "/" + REPO + "/" + BRANCH + "/" + normalized;
+      titleEl.textContent = normalized.split("/").pop();
+      pathEl.textContent = normalized;
+      rawEl.href = rawUrl;
+
+      fetch(rawUrl, { cache: "no-store" })
+        .then(function (resp) {
+          if (!resp.ok) {
+            throw new Error("HTTP " + resp.status);
+          }
+          return resp.text();
+        })
+        .then(function (md) {
+          if (window.marked && typeof window.marked.parse === "function") {
+            contentEl.innerHTML = window.marked.parse(md);
+          } else {
+            contentEl.innerHTML = "<pre></pre>";
+            contentEl.querySelector("pre").textContent = md;
+          }
+        })
+        .catch(function (err) {
+          contentEl.innerHTML = "<p>加载失败：" + err.message + "</p>";
+        });
+    })();
+  </script>
+</body>
+</html>
