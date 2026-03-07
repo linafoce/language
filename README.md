@@ -3,7 +3,7 @@
 这个仓库用于替代受限笔记 App，实现：
 
 - 你把 Gemini 生成的 Markdown 保存到本地
-- Windows 自动提交并推送到 GitHub
+- Windows / macOS 自动提交并推送到 GitHub
 - 用 GitHub Pages 公开网页阅读（不依赖 Obsidian 付费服务）
 
 ## 目录约定
@@ -33,6 +33,20 @@ git config --global user.email "你的邮箱"
 ```
 
 ### 3) 启动自动同步（当前会话）
+
+macOS（bash）：
+
+```bash
+bash ./scripts/start-auto-sync.sh
+```
+
+停止后台同步：
+
+```bash
+bash ./scripts/stop-auto-sync.sh
+```
+
+Windows（PowerShell）：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File ".\scripts\start-auto-sync.ps1"
