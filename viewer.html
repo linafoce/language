@@ -398,6 +398,25 @@
           });
         }
 
+        const desktopLinks = tocLinkById[activeId] || [];
+        const desktopLink = desktopLinks.find(function (link) {
+          return link.closest("#desktop-toc");
+        });
+        if (desktopLink && desktopTocEl) {
+          const panel = desktopTocEl.closest(".toc-panel");
+          if (panel) {
+            const panelRect = panel.getBoundingClientRect();
+            const linkRect = desktopLink.getBoundingClientRect();
+            const overflowTop = linkRect.top < panelRect.top + 12;
+            const overflowBottom = linkRect.bottom > panelRect.bottom - 12;
+
+            if (overflowTop || overflowBottom) {
+              const delta = (linkRect.top + linkRect.height / 2) - (panelRect.top + panelRect.height / 2);
+              panel.scrollTop += delta;
+            }
+          }
+        }
+
       }
 
       function updateActiveFromViewport() {
@@ -512,6 +531,9 @@
             if (isMobileLayout()) {
               closeDrawer();
             }
+            setTimeout(function () {
+              setActive(id);
+            }, 80);
           });
         });
 
