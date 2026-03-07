@@ -309,7 +309,6 @@
       const contentEl = document.getElementById("content");
       const rawEl = document.getElementById("raw-link");
 
-      const desktopPanelEl = document.getElementById("desktop-toc-panel");
       const desktopTocEl = document.getElementById("desktop-toc");
       const mobileTocEl = document.getElementById("mobile-toc");
       const tocFabEl = document.getElementById("toc-fab");
@@ -353,13 +352,10 @@
         const headings = Array.from(contentEl.querySelectorAll("h1, h2, h3"));
         const total = headings.length;
         const count = { h1: 0, h2: 0, h3: 0 };
-        const textStats = {};
 
         headings.forEach(function (h) {
           const key = h.tagName.toLowerCase();
           count[key] += 1;
-          const text = h.textContent.trim();
-          textStats[text] = (textStats[text] || 0) + 1;
         });
 
         if (!total) {
@@ -367,13 +363,10 @@
         }
 
         const sub = count.h2 + count.h3;
-        const uniqueRatio = Object.keys(textStats).length / total;
         const fallbackToH1 =
           sub === 0 ||
           sub / total < 0.25 ||
-          (total > 120 && count.h1 / total > 0.75) ||
-          total > 120 ||
-          (total > 80 && uniqueRatio < 0.6);
+          (total > 120 && count.h1 / total > 0.75);
 
         if (fallbackToH1) {
           return headings.filter(function (h) { return h.tagName === "H1"; });
@@ -395,13 +388,6 @@
           });
         });
 
-        const desktopLinks = tocLinkById[id] || [];
-        const desktopLink = desktopLinks.find(function (link) {
-          return link.closest("#desktop-toc");
-        });
-        if (desktopLink) {
-          desktopLink.scrollIntoView({ block: "nearest" });
-        }
       }
 
       function updateActiveFromViewport() {
@@ -547,17 +533,6 @@
           tocFabEl.style.display = "inline-block";
         }
       }
-
-      desktopPanelEl.addEventListener(
-        "wheel",
-        function (evt) {
-          if (!isMobileLayout()) {
-            window.scrollBy({ top: evt.deltaY, behavior: "auto" });
-            evt.preventDefault();
-          }
-        },
-        { passive: false }
-      );
 
       tocFabEl.addEventListener("click", function () {
         if (drawerEl.classList.contains("open")) {
