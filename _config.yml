@@ -1,0 +1,14 @@
+title: Japanese Notebook
+description: Public Japanese learning notes
+markdown: kramdown
+theme: minima
+
+# Repository is expected to be published from root.
+baseurl: ""
+url: ""
+
+exclude:
+  - scripts
+  - logs
+  - .github
+  - README.md
