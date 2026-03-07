@@ -1,0 +1,11 @@
+logs/
+*.log
+
+# Obsidian local state
+.obsidian/workspace*.json
+.obsidian/cache/
+.obsidian/plugins/*/data.json
+
+# Windows noise
+Thumbs.db
+Desktop.ini
