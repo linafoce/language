@@ -67,7 +67,7 @@
 
     .layout {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 300px;
+      grid-template-columns: minmax(0, 1fr) 320px;
       gap: 16px;
       align-items: start;
     }
@@ -127,6 +127,12 @@
       padding: 0;
     }
 
+    .toc-nav ul ul {
+      margin-left: 12px;
+      padding-left: 10px;
+      border-left: 1px solid #d8dee4;
+    }
+
     .toc-nav li {
       margin: 4px 0;
     }
@@ -149,9 +155,6 @@
       color: var(--active-text);
       font-weight: 600;
     }
-
-    .toc-level-2 { margin-left: 14px; }
-    .toc-level-3 { margin-left: 28px; }
 
     .desktop-toc-empty {
       color: var(--muted);
@@ -288,7 +291,7 @@
   <aside id="toc-drawer" class="toc-drawer" aria-hidden="true">
     <div class="toc-drawer-head">
       <h2>目录</h2>
-      <button id="toc-drawer-close" class="toc-drawer-close" type="button" aria-label="关闭目录">×</button>
+      <button id="toc-drawer-close" class="toc-drawer-close" type="button" aria-label="关闭目录">&times;</button>
     </div>
     <div class="toc-drawer-body">
       <nav id="mobile-toc" class="toc-nav"></nav>
@@ -306,6 +309,7 @@
       const contentEl = document.getElementById("content");
       const rawEl = document.getElementById("raw-link");
 
+      const desktopPanelEl = document.getElementById("desktop-toc-panel");
       const desktopTocEl = document.getElementById("desktop-toc");
       const mobileTocEl = document.getElementById("mobile-toc");
       const tocFabEl = document.getElementById("toc-fab");
@@ -347,38 +351,35 @@
 
       function getAdaptiveHeadings() {
         const headings = Array.from(contentEl.querySelectorAll("h1, h2, h3"));
+        const total = headings.length;
         const count = { h1: 0, h2: 0, h3: 0 };
+        const textStats = {};
 
         headings.forEach(function (h) {
           const key = h.tagName.toLowerCase();
           count[key] += 1;
+          const text = h.textContent.trim();
+          textStats[text] = (textStats[text] || 0) + 1;
         });
 
-        const total = headings.length;
+        if (!total) {
+          return headings;
+        }
+
         const sub = count.h2 + count.h3;
+        const uniqueRatio = Object.keys(textStats).length / total;
         const fallbackToH1 =
           sub === 0 ||
-          (total > 0 && sub / total < 0.25) ||
-          (total > 120 && count.h1 / total > 0.75);
+          sub / total < 0.25 ||
+          (total > 120 && count.h1 / total > 0.75) ||
+          total > 120 ||
+          (total > 80 && uniqueRatio < 0.6);
 
         if (fallbackToH1) {
           return headings.filter(function (h) { return h.tagName === "H1"; });
         }
 
         return headings;
-      }
-
-      function createTocItem(id, text, level) {
-        const li = document.createElement("li");
-        li.className = "toc-level-" + level;
-
-        const a = document.createElement("a");
-        a.href = "#" + id;
-        a.dataset.targetId = id;
-        a.textContent = text;
-
-        li.appendChild(a);
-        return li;
       }
 
       function setActive(id) {
@@ -398,7 +399,6 @@
         const desktopLink = desktopLinks.find(function (link) {
           return link.closest("#desktop-toc");
         });
-
         if (desktopLink) {
           desktopLink.scrollIntoView({ block: "nearest" });
         }
@@ -445,10 +445,50 @@
         });
       }
 
-      function mountEmptyToc() {
+      function renderEmptyToc() {
         desktopTocEl.innerHTML = '<p class="desktop-toc-empty">暂无目录</p>';
         mobileTocEl.innerHTML = '<p class="toc-drawer-empty">暂无目录</p>';
         tocFabEl.style.display = "none";
+      }
+
+      function buildTree(items, mountEl) {
+        const rootUl = document.createElement("ul");
+        mountEl.appendChild(rootUl);
+
+        const stack = [{ level: 0, ul: rootUl }];
+        const linkMap = {};
+
+        items.forEach(function (item) {
+          while (stack.length > 1 && item.level <= stack[stack.length - 1].level) {
+            stack.pop();
+          }
+
+          const li = document.createElement("li");
+          const link = document.createElement("a");
+          const childUl = document.createElement("ul");
+
+          link.href = "#" + item.id;
+          link.dataset.targetId = item.id;
+          link.textContent = item.text;
+
+          li.appendChild(link);
+          li.appendChild(childUl);
+          stack[stack.length - 1].ul.appendChild(li);
+          stack.push({ level: item.level, ul: childUl });
+
+          if (!linkMap[item.id]) {
+            linkMap[item.id] = [];
+          }
+          linkMap[item.id].push(link);
+        });
+
+        mountEl.querySelectorAll("ul").forEach(function (ul) {
+          if (!ul.children.length) {
+            ul.remove();
+          }
+        });
+
+        return linkMap;
       }
 
       function renderToc() {
@@ -459,14 +499,11 @@
         activeId = "";
 
         if (!headings.length) {
-          mountEmptyToc();
+          renderEmptyToc();
           return;
         }
 
         const used = {};
-        const desktopList = document.createElement("ul");
-        const mobileList = document.createElement("ul");
-
         observedHeadings = headings.map(function (heading) {
           const text = heading.textContent.trim();
           const level = Number(heading.tagName.slice(1));
@@ -481,25 +518,19 @@
           used[id] = true;
           heading.id = id;
 
-          const desktopItem = createTocItem(id, text, level);
-          const mobileItem = createTocItem(id, text, level);
-
-          desktopList.appendChild(desktopItem);
-          mobileList.appendChild(mobileItem);
-
-          tocLinkById[id] = [
-            desktopItem.querySelector("a"),
-            mobileItem.querySelector("a")
-          ];
-
-          return heading;
+          return { id: id, text: text, level: level, element: heading };
         });
 
-        desktopTocEl.appendChild(desktopList);
-        mobileTocEl.appendChild(mobileList);
+        const desktopMap = buildTree(observedHeadings, desktopTocEl);
+        const mobileMap = buildTree(observedHeadings, mobileTocEl);
 
-        const allLinks = document.querySelectorAll("#desktop-toc a, #mobile-toc a");
-        allLinks.forEach(function (link) {
+        Object.keys(desktopMap).forEach(function (id) {
+          tocLinkById[id] = (desktopMap[id] || []).concat(mobileMap[id] || []);
+        });
+
+        observedHeadings = observedHeadings.map(function (item) { return item.element; });
+
+        document.querySelectorAll("#desktop-toc a, #mobile-toc a").forEach(function (link) {
           link.addEventListener("click", function () {
             const id = link.dataset.targetId;
             setActive(id);
@@ -516,6 +547,17 @@
           tocFabEl.style.display = "inline-block";
         }
       }
+
+      desktopPanelEl.addEventListener(
+        "wheel",
+        function (evt) {
+          if (!isMobileLayout()) {
+            window.scrollBy({ top: evt.deltaY, behavior: "auto" });
+            evt.preventDefault();
+          }
+        },
+        { passive: false }
+      );
 
       tocFabEl.addEventListener("click", function () {
         if (drawerEl.classList.contains("open")) {
@@ -550,7 +592,7 @@
         titleEl.textContent = "缺少 file 参数";
         pathEl.textContent = "请从首页进入。";
         contentEl.innerHTML = "<p>示例：<code>viewer.html?file=courses%2FN2.md</code></p>";
-        mountEmptyToc();
+        renderEmptyToc();
         return;
       }
 
@@ -559,7 +601,7 @@
         titleEl.textContent = "不允许的文件路径";
         pathEl.textContent = normalized;
         contentEl.innerHTML = "<p>仅支持 inbox/courses/topics 下的 .md 文件。</p>";
-        mountEmptyToc();
+        renderEmptyToc();
         return;
       }
 
@@ -586,7 +628,7 @@
         })
         .catch(function (err) {
           contentEl.innerHTML = "<p>加载失败：" + err.message + "</p>";
-          mountEmptyToc();
+          renderEmptyToc();
         });
     })();
   </script>
