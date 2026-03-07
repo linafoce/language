@@ -9,8 +9,8 @@
 ## 目录约定
 
 - `inbox/`：临时输入区（推荐先存这里）
-- `courses/`：主线累计笔记（例如 `N2.md`、`N3.md`）
-- `topics/`：专题笔记
+- `courses/`：主线累计笔记（支持多层子目录）
+- `topics/`：专题笔记（支持多层子目录）
 - `scripts/`：自动同步脚本
 - `logs/`：自动同步日志（本地）
 
@@ -64,26 +64,26 @@ powershell -NoProfile -ExecutionPolicy Bypass -File ".\scripts\uninstall-login-t
 
 仓库已经包含：
 
-- `index.md`：自动索引 `inbox/`、`courses/`、`topics/` 下的 Markdown
-- `viewer.html`：网页渲染 Markdown
-- `.github/workflows/deploy-pages.yml`：推送后自动发布
+- `index.html`：读取站点内 `notes.json` 生成文件列表（不调用 GitHub API）
+- `viewer.html`：网页渲染 Markdown，支持目录跳转（默认 h1-h3）
+- `.github/workflows/deploy-pages.yml`：推送后自动生成 `notes.json` 并发布
 
 你只需要在 GitHub 网页做一次设置：
 
 1. 进入仓库 `Settings` -> `Pages`
 2. `Build and deployment` 的 `Source` 选择 `GitHub Actions`
 3. 回到 `Actions` 等待 `Deploy GitHub Pages` 工作流成功
-4. 打开站点（通常是 `https://linafoce.github.io/language/`）
+4. 打开站点：`https://linafoce.github.io/language/`
 
 ## 日常使用
 
-1. 上课时把 Gemini 输出保存为 Markdown 到 `inbox/`
+1. 上课时把 Gemini 输出保存为 Markdown 到 `inbox/` 或 `courses/` 下任意层级目录
 2. 文件名建议：`YYYY-MM-DD-主题.md`
-3. 每周整理一次，把内容合并到 `courses/*.md` 或 `topics/*.md`
-4. 在 Pages 站点中阅读；日志看 `logs/auto-sync.log`
+3. 每周整理一次，把内容归档到 `courses/` 或 `topics/` 的长期结构
+4. 在 Pages 站点阅读；日志看 `logs/auto-sync.log`
 
 ## 注意事项
 
-- 你开启的是公开 Pages，任何人都可访问站点内容。
-- 如果同一文件在多端同时修改，`pull --rebase` 可能出现冲突，需手动解决。
+- 这是公开 Pages，任何人都可访问站点内容。
+- 同一文件多端并发修改可能出现 `pull --rebase` 冲突，需手动解决。
 - 网络失败时本地提交会保留，后续变更会自动重试推送。

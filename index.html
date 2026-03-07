@@ -24,7 +24,7 @@
     }
 
     .wrap {
-      max-width: 980px;
+      max-width: 1100px;
       margin: 24px auto;
       padding: 0 16px;
     }
@@ -61,11 +61,24 @@
 
     tr:last-child td { border-bottom: 0; }
     th { background: #f6f8fa; }
+
     code {
       background: #f6f8fa;
       border: 1px solid var(--line);
       border-radius: 6px;
       padding: 1px 6px;
+      word-break: break-all;
+    }
+
+    .tag {
+      display: inline-block;
+      margin-right: 8px;
+      padding: 1px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      background: #fff;
     }
   </style>
 </head>
@@ -73,7 +86,12 @@
   <div class="wrap">
     <div class="card">
       <h1>日语笔记首页</h1>
-      <p>公开站点，内容来自 GitHub 仓库。点“阅读”查看网页渲染，点“源文件”查看原始 Markdown。</p>
+      <p>
+        <span class="tag">公开站点</span>
+        <span class="tag">自动同步</span>
+        <span class="tag">支持多层目录</span>
+      </p>
+      <p>首页读取站点内 <code>notes.json</code>，不调用 GitHub API，避免手机端 403 限流问题。</p>
       <p id="status">正在加载文件列表...</p>
     </div>
 
@@ -94,64 +112,77 @@
       const OWNER = "linafoce";
       const REPO = "language";
       const BRANCH = "main";
-      const LIST_API = "https://api.github.com/repos/" + OWNER + "/" + REPO + "/git/trees/" + BRANCH + "?recursive=1";
       const statusEl = document.getElementById("status");
       const tableEl = document.getElementById("notes-table");
       const bodyEl = document.getElementById("notes-body");
 
-      function isNote(path) {
+      function fetchNotes() {
+        return fetch("notes.json?ts=" + Date.now(), { cache: "no-store" })
+          .then(function (resp) {
+            if (!resp.ok) {
+              throw new Error("HTTP " + resp.status);
+            }
+            return resp.json();
+          })
+          .then(function (data) {
+            if (Array.isArray(data)) {
+              return data;
+            }
+            if (data && Array.isArray(data.notes)) {
+              return data.notes;
+            }
+            throw new Error("notes.json 格式不正确");
+          });
+      }
+
+      function isNotePath(path) {
         return /^(inbox|courses|topics)\/.+\.md$/i.test(path);
       }
 
-      fetch(LIST_API, { cache: "no-store" })
-        .then(function (resp) {
-          if (!resp.ok) {
-            throw new Error("HTTP " + resp.status);
-          }
-          return resp.json();
-        })
-        .then(function (data) {
-          const tree = Array.isArray(data.tree) ? data.tree : [];
-          const notes = tree
-            .filter(function (item) { return item.type === "blob" && isNote(item.path); })
-            .sort(function (a, b) { return a.path.localeCompare(b.path, "zh-CN"); });
+      function renderRow(path) {
+        const tr = document.createElement("tr");
+        const rawUrl = "https://raw.githubusercontent.com/" + OWNER + "/" + REPO + "/" + BRANCH + "/" + path;
+
+        const tdPath = document.createElement("td");
+        tdPath.innerHTML = "<code>" + path + "</code>";
+
+        const tdViewer = document.createElement("td");
+        const viewLink = document.createElement("a");
+        viewLink.href = "viewer.html?file=" + encodeURIComponent(path);
+        viewLink.textContent = "阅读";
+        tdViewer.appendChild(viewLink);
+
+        const tdRaw = document.createElement("td");
+        const rawLink = document.createElement("a");
+        rawLink.href = rawUrl;
+        rawLink.target = "_blank";
+        rawLink.rel = "noopener noreferrer";
+        rawLink.textContent = "源文件";
+        tdRaw.appendChild(rawLink);
+
+        tr.appendChild(tdPath);
+        tr.appendChild(tdViewer);
+        tr.appendChild(tdRaw);
+        bodyEl.appendChild(tr);
+      }
+
+      fetchNotes()
+        .then(function (paths) {
+          const notes = paths
+            .filter(function (path) { return typeof path === "string" && isNotePath(path); })
+            .sort(function (a, b) { return a.localeCompare(b, "zh-CN"); });
 
           if (notes.length === 0) {
             statusEl.textContent = "未找到笔记文件。";
             return;
           }
 
-          notes.forEach(function (item) {
-            const tr = document.createElement("tr");
-
-            const tdPath = document.createElement("td");
-            tdPath.innerHTML = "<code>" + item.path + "</code>";
-
-            const tdViewer = document.createElement("td");
-            const viewLink = document.createElement("a");
-            viewLink.href = "viewer.html?file=" + encodeURIComponent(item.path);
-            viewLink.textContent = "阅读";
-            tdViewer.appendChild(viewLink);
-
-            const tdRaw = document.createElement("td");
-            const rawLink = document.createElement("a");
-            rawLink.href = "https://raw.githubusercontent.com/" + OWNER + "/" + REPO + "/" + BRANCH + "/" + item.path;
-            rawLink.target = "_blank";
-            rawLink.rel = "noopener noreferrer";
-            rawLink.textContent = "源文件";
-            tdRaw.appendChild(rawLink);
-
-            tr.appendChild(tdPath);
-            tr.appendChild(tdViewer);
-            tr.appendChild(tdRaw);
-            bodyEl.appendChild(tr);
-          });
-
+          notes.forEach(renderRow);
           statusEl.textContent = "共找到 " + notes.length + " 个 Markdown 文件。";
           tableEl.hidden = false;
         })
         .catch(function (err) {
-          statusEl.textContent = "加载失败：" + err.message + "。你可以稍后刷新重试。";
+          statusEl.textContent = "加载失败：" + err.message + "。请等待 Pages 工作流完成后刷新。";
         });
     })();
   </script>
