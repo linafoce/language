@@ -188,10 +188,14 @@
       inset: 0;
       background: rgba(0, 0, 0, 0.35);
       z-index: 1001;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
     }
 
-    .toc-overlay[hidden] {
-      display: none;
+    .toc-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
     }
 
     .toc-drawer {
@@ -319,7 +323,7 @@
       let observedHeadings = [];
       let tocLinkById = {};
       let activeId = "";
-      let observer = null;
+      let ticking = false;
 
       function slugify(text) {
         const cleaned = text
@@ -334,12 +338,14 @@
         drawerEl.classList.add("open");
         drawerEl.setAttribute("aria-hidden", "false");
         overlayEl.hidden = false;
+        overlayEl.classList.add("active");
         tocFabEl.setAttribute("aria-expanded", "true");
       }
 
       function closeDrawer() {
         drawerEl.classList.remove("open");
         drawerEl.setAttribute("aria-hidden", "true");
+        overlayEl.classList.remove("active");
         overlayEl.hidden = true;
         tocFabEl.setAttribute("aria-expanded", "false");
       }
@@ -379,14 +385,18 @@
         if (!id || activeId === id) {
           return;
         }
-        activeId = id;
-
-        Object.keys(tocLinkById).forEach(function (key) {
-          const links = tocLinkById[key];
-          links.forEach(function (link) {
-            link.classList.toggle("active", key === id);
+        if (activeId && tocLinkById[activeId]) {
+          tocLinkById[activeId].forEach(function (link) {
+            link.classList.remove("active");
           });
-        });
+        }
+
+        activeId = id;
+        if (tocLinkById[activeId]) {
+          tocLinkById[activeId].forEach(function (link) {
+            link.classList.add("active");
+          });
+        }
 
       }
 
@@ -408,27 +418,6 @@
         }
 
         setActive(candidate);
-      }
-
-      function setupObserver() {
-        if (observer) {
-          observer.disconnect();
-        }
-
-        observer = new IntersectionObserver(
-          function () {
-            updateActiveFromViewport();
-          },
-          {
-            root: null,
-            threshold: [0, 0.25, 0.5, 1],
-            rootMargin: "-20% 0px -70% 0px"
-          }
-        );
-
-        observedHeadings.forEach(function (heading) {
-          observer.observe(heading);
-        });
       }
 
       function renderEmptyToc() {
@@ -527,7 +516,7 @@
         });
 
         setActive(observedHeadings[0].id);
-        setupObserver();
+        updateActiveFromViewport();
 
         if (isMobileLayout()) {
           tocFabEl.style.display = "inline-block";
@@ -559,6 +548,21 @@
           tocFabEl.style.display = "inline-block";
         }
       });
+
+      window.addEventListener(
+        "scroll",
+        function () {
+          if (ticking) {
+            return;
+          }
+          ticking = true;
+          window.requestAnimationFrame(function () {
+            updateActiveFromViewport();
+            ticking = false;
+          });
+        },
+        { passive: true }
+      );
 
       const params = new URLSearchParams(window.location.search);
       const file = params.get("file");
