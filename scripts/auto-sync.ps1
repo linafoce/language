@@ -30,7 +30,6 @@ if (-not (Test-Path $logDirectory)) {
 }
 
 $script:IsSyncing = $false
-$script:Timer = $null
 
 function Write-Log {
     param(
@@ -58,6 +57,7 @@ function Invoke-Git {
     } finally {
         $ErrorActionPreference = $previousErrorActionPreference
     }
+
     $text = ($output | ForEach-Object {
             if ($_ -is [System.Management.Automation.ErrorRecord]) {
                 $_.Exception.Message
@@ -236,22 +236,7 @@ function Register-Watchers {
 
         foreach ($eventName in @("Created", "Changed", "Deleted", "Renamed")) {
             $sourceId = "AutoSync.$folder.$eventName"
-            Register-ObjectEvent -InputObject $watcher -EventName $eventName -SourceIdentifier $sourceId -Action {
-                $changedPath = ""
-                if ($null -ne $Event.SourceEventArgs) {
-                    if ($Event.SourceEventArgs.PSObject.Properties.Name -contains "FullPath") {
-                        $changedPath = $Event.SourceEventArgs.FullPath
-                    }
-                }
-
-                if ([string]::IsNullOrWhiteSpace($changedPath)) {
-                    $changedPath = "(unknown)"
-                }
-
-                Write-Log -Message ("Detected file change: {0}" -f $changedPath)
-                $script:Timer.Stop()
-                $script:Timer.Start()
-            } | Out-Null
+            Register-ObjectEvent -InputObject $watcher -EventName $eventName -SourceIdentifier $sourceId | Out-Null
         }
     }
 
@@ -264,20 +249,41 @@ if ($RunOnce) {
 }
 
 Write-Log -Message "Auto sync started. Repo='$RepoPath', debounce=${DebounceSeconds}s."
-
-$script:Timer = New-Object System.Timers.Timer
-$script:Timer.Interval = $DebounceSeconds * 1000
-$script:Timer.AutoReset = $false
-Register-ObjectEvent -InputObject $script:Timer -EventName Elapsed -SourceIdentifier "AutoSync.Timer" -Action {
-    Invoke-Sync
-} | Out-Null
-
 $registeredWatchers = Register-Watchers
 Write-Log -Message ("Watching folders: {0}" -f ($WatchFolders -join ", "))
 
+$lastChange = $null
+
 try {
     while ($true) {
-        Wait-Event -Timeout 1 | Out-Null
+        $event = Wait-Event -Timeout 1
+        if ($null -ne $event) {
+            if ($event.SourceIdentifier -like "AutoSync.*") {
+                $path = ""
+                if ($null -ne $event.SourceEventArgs) {
+                    if ($event.SourceEventArgs.PSObject.Properties.Name -contains "FullPath") {
+                        $path = $event.SourceEventArgs.FullPath
+                    }
+                }
+
+                if ([string]::IsNullOrWhiteSpace($path)) {
+                    $path = "(unknown)"
+                }
+
+                Write-Log -Message ("Detected file change: {0}" -f $path)
+                $lastChange = Get-Date
+            }
+
+            Remove-Event -EventIdentifier $event.EventIdentifier -ErrorAction SilentlyContinue
+        }
+
+        if ($null -ne $lastChange) {
+            $elapsed = (Get-Date) - $lastChange
+            if ($elapsed.TotalSeconds -ge $DebounceSeconds) {
+                Invoke-Sync
+                $lastChange = $null
+            }
+        }
     }
 } finally {
     Write-Log -Message "Shutting down auto sync watcher."
@@ -289,10 +295,5 @@ try {
     foreach ($watcher in $registeredWatchers) {
         $watcher.EnableRaisingEvents = $false
         $watcher.Dispose()
-    }
-
-    if ($null -ne $script:Timer) {
-        $script:Timer.Stop()
-        $script:Timer.Dispose()
     }
 }
