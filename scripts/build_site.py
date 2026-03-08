@@ -85,21 +85,56 @@ NOTE_TEMPLATE = r"""<!doctype html>
       border-radius: 10px;
       padding: 16px;
     }
+    .head {
+      padding: 14px 18px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px 20px;
+      align-items: start;
+    }
+    .head h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.2;
+    }
+    .head-main {
+      min-width: 0;
+    }
+    .head-side {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+    }
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 18px;
+      margin-top: 8px;
+    }
     .meta {
       color: var(--muted);
       font-size: 14px;
-      margin: 0 0 8px;
+      margin: 0;
       word-break: break-all;
     }
-    .actions { margin: 0; font-size: 14px; }
+    .actions {
+      margin: 0;
+      font-size: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      justify-content: flex-end;
+    }
     .actions a { color: var(--link); text-decoration: none; margin-right: 12px; }
+    .actions a:last-child { margin-right: 0; }
     .actions a:hover { text-decoration: underline; }
 
     .toc-mode {
-      margin-top: 12px;
       display: inline-flex;
       gap: 8px;
       align-items: center;
+      flex-wrap: wrap;
     }
     .toc-mode button {
       border: 1px solid var(--line);
@@ -263,6 +298,16 @@ NOTE_TEMPLATE = r"""<!doctype html>
         padding: 0 16px 24px;
         display: block;
       }
+      .head {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      .head-side {
+        align-items: flex-start;
+      }
+      .actions {
+        justify-content: flex-start;
+      }
       .layout { grid-template-columns: 1fr; }
       .desktop-toc { display: none; }
       .toc-fab { display: inline-block; }
@@ -277,16 +322,22 @@ NOTE_TEMPLATE = r"""<!doctype html>
 <body>
   <div class="wrap">
     <section class="card head">
-      <h1 id="title">__TITLE__</h1>
-      <p class="meta">Path: __PATH__</p>
-      <p class="meta">Updated: __UPDATED__</p>
-      <p class="actions">
-        <a href="__BACK_TO_INDEX__">Back to index</a>
-        <a href="__SOURCE_URL__" target="_blank" rel="noopener noreferrer">Open source (.md)</a>
-      </p>
-      <div class="toc-mode" aria-label="Table of contents mode">
-        <button type="button" id="mode-h1" data-mode="h1">H1</button>
-        <button type="button" id="mode-h13" data-mode="h13">H1-H3</button>
+      <div class="head-main">
+        <h1 id="title">__TITLE__</h1>
+        <div class="meta-row">
+          <p class="meta">Path: __PATH__</p>
+          <p class="meta">Updated: __UPDATED__</p>
+        </div>
+      </div>
+      <div class="head-side">
+        <p class="actions">
+          <a href="__BACK_TO_INDEX__">Back to index</a>
+          <a href="__SOURCE_URL__" target="_blank" rel="noopener noreferrer">Open source (.md)</a>
+        </p>
+        <div class="toc-mode" aria-label="Table of contents mode">
+          <button type="button" id="mode-h1" data-mode="h1">H1</button>
+          <button type="button" id="mode-h13" data-mode="h13">H1-H3</button>
+        </div>
       </div>
     </section>
 
