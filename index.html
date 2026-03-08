@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>日语笔记首页</title>
+  <title>Japanese Notes</title>
   <style>
     :root {
       --bg: #f6f8fa;
@@ -12,19 +12,20 @@
       --muted: #57606a;
       --line: #d0d7de;
       --link: #0969da;
+      --accent-bg: #ddf4ff;
     }
 
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
       background: var(--bg);
       color: var(--text);
-      line-height: 1.6;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.55;
     }
 
     .wrap {
-      max-width: 1100px;
+      max-width: 1160px;
       margin: 24px auto;
       padding: 0 16px;
     }
@@ -37,20 +38,90 @@
       margin-bottom: 16px;
     }
 
-    h1 { margin: 0 0 8px; font-size: 28px; }
-    p { margin: 0 0 12px; color: var(--muted); }
+    h1 { margin: 0 0 8px; font-size: 30px; }
+    h2 { margin: 0 0 10px; font-size: 20px; }
+    p { margin: 0 0 10px; color: var(--muted); }
     a { color: var(--link); text-decoration: none; }
     a:hover { text-decoration: underline; }
+
+    .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .tag {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      background: #fff;
+    }
+
+    .search {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+    }
+    .search input {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 14px;
+      min-width: 0;
+    }
+    .search button {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 14px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .search button:hover {
+      background: #f6f8fa;
+    }
+
+    .list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 8px;
+    }
+    .list li {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 10px 12px;
+      background: #fff;
+    }
+    .item-title {
+      margin: 0 0 4px;
+      font-weight: 600;
+    }
+    .item-meta {
+      margin: 0;
+      font-size: 12px;
+      color: var(--muted);
+      word-break: break-all;
+    }
+
+    .result-count {
+      margin: 10px 0 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      background: var(--card);
       border: 1px solid var(--line);
       border-radius: 10px;
       overflow: hidden;
+      background: #fff;
     }
-
     th, td {
       border-bottom: 1px solid var(--line);
       text-align: left;
@@ -58,132 +129,272 @@
       font-size: 14px;
       vertical-align: top;
     }
-
-    tr:last-child td { border-bottom: 0; }
     th { background: #f6f8fa; }
+    tr:last-child td { border-bottom: 0; }
 
     code {
       background: #f6f8fa;
       border: 1px solid var(--line);
       border-radius: 6px;
-      padding: 1px 6px;
+      padding: 1px 5px;
+      font-size: 12px;
       word-break: break-all;
     }
 
-    .tag {
-      display: inline-block;
-      margin-right: 8px;
-      padding: 1px 8px;
-      border-radius: 999px;
-      border: 1px solid var(--line);
-      color: var(--muted);
-      font-size: 12px;
-      background: #fff;
+    .hint {
+      background: var(--accent-bg);
+      border: 1px solid #9cd7ff;
+      border-radius: 8px;
+      color: #0550ae;
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+
+    @media (max-width: 900px) {
+      .search {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="card">
-      <h1>日语笔记首页</h1>
-      <p>
-        <span class="tag">公开站点</span>
-        <span class="tag">自动同步</span>
-        <span class="tag">支持多层目录</span>
+    <section class="card">
+      <h1>Japanese Notes</h1>
+      <div class="tags">
+        <span class="tag">Pre-rendered</span>
+        <span class="tag">Full text search</span>
+        <span class="tag">Recent updates</span>
+      </div>
+      <p>Static index and note pages are generated at build time.</p>
+      <p id="status">Loading notes...</p>
+      <p class="hint">
+        Compatibility: old links like <code>viewer.html?file=courses%2FN2.md</code> still work and will redirect.
       </p>
-      <p>首页读取站点内 <code>notes.json</code>，不调用 GitHub API，避免手机端 403 限流问题。</p>
-      <p id="status">正在加载文件列表...</p>
-    </div>
+    </section>
 
-    <table id="notes-table" hidden>
-      <thead>
-        <tr>
-          <th>文件</th>
-          <th>阅读</th>
-          <th>源文件</th>
-        </tr>
-      </thead>
-      <tbody id="notes-body"></tbody>
-    </table>
+    <section class="card">
+      <h2>Search</h2>
+      <div class="search">
+        <input id="search-input" type="text" placeholder="Search title or content, e.g. 〜にくい / 受け身">
+        <button id="search-btn" type="button">Search</button>
+      </div>
+      <p id="search-count" class="result-count">Search index is loading...</p>
+      <ul id="search-results" class="list"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Recent Updates</h2>
+      <ul id="recent-list" class="list"></ul>
+    </section>
+
+    <section class="card">
+      <h2>All Notes</h2>
+      <table id="notes-table" hidden>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Path</th>
+            <th>Updated</th>
+            <th>Open</th>
+          </tr>
+        </thead>
+        <tbody id="notes-body"></tbody>
+      </table>
+    </section>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/lunr/lunr.min.js"></script>
   <script>
     (function () {
-      const OWNER = "linafoce";
-      const REPO = "language";
-      const BRANCH = "main";
       const statusEl = document.getElementById("status");
-      const tableEl = document.getElementById("notes-table");
-      const bodyEl = document.getElementById("notes-body");
+      const notesTableEl = document.getElementById("notes-table");
+      const notesBodyEl = document.getElementById("notes-body");
+      const recentListEl = document.getElementById("recent-list");
+      const searchInputEl = document.getElementById("search-input");
+      const searchBtnEl = document.getElementById("search-btn");
+      const searchCountEl = document.getElementById("search-count");
+      const searchResultsEl = document.getElementById("search-results");
 
-      function fetchNotes() {
-        return fetch("notes.json?ts=" + Date.now(), { cache: "no-store" })
+      let notes = [];
+      let searchDocs = [];
+      let searchIndex = null;
+
+      function formatDate(isoText) {
+        if (!isoText) {
+          return "-";
+        }
+        const dt = new Date(isoText);
+        if (Number.isNaN(dt.getTime())) {
+          return isoText;
+        }
+        return dt.toLocaleString("zh-CN", { hour12: false });
+      }
+
+      function escapeHtml(text) {
+        return String(text)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll("\"", "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function containsCjk(text) {
+        return /[\u3400-\u9FFF]/.test(text);
+      }
+
+      function loadJson(path) {
+        return fetch(path + "?ts=" + Date.now(), { cache: "no-store" })
           .then(function (resp) {
             if (!resp.ok) {
-              throw new Error("HTTP " + resp.status);
+              throw new Error("HTTP " + resp.status + " while loading " + path);
             }
             return resp.json();
-          })
-          .then(function (data) {
-            if (Array.isArray(data)) {
-              return data;
-            }
-            if (data && Array.isArray(data.notes)) {
-              return data.notes;
-            }
-            throw new Error("notes.json 格式不正确");
           });
       }
 
-      function isNotePath(path) {
-        return /^(inbox|courses|topics)\/.+\.md$/i.test(path);
+      function renderAllNotes() {
+        notesBodyEl.innerHTML = "";
+        notes.forEach(function (note) {
+          const tr = document.createElement("tr");
+          tr.innerHTML =
+            "<td>" + escapeHtml(note.title || note.path) + "</td>" +
+            "<td><code>" + escapeHtml(note.path) + "</code></td>" +
+            "<td>" + escapeHtml(formatDate(note.updated)) + "</td>" +
+            "<td><a href=\"" + encodeURI(note.url) + "\">Open</a></td>";
+          notesBodyEl.appendChild(tr);
+        });
+        notesTableEl.hidden = notes.length === 0;
       }
 
-      function renderRow(path) {
-        const tr = document.createElement("tr");
-        const rawUrl = "https://raw.githubusercontent.com/" + OWNER + "/" + REPO + "/" + BRANCH + "/" + path;
-
-        const tdPath = document.createElement("td");
-        tdPath.innerHTML = "<code>" + path + "</code>";
-
-        const tdViewer = document.createElement("td");
-        const viewLink = document.createElement("a");
-        viewLink.href = "viewer.html?file=" + encodeURIComponent(path);
-        viewLink.textContent = "阅读";
-        tdViewer.appendChild(viewLink);
-
-        const tdRaw = document.createElement("td");
-        const rawLink = document.createElement("a");
-        rawLink.href = rawUrl;
-        rawLink.target = "_blank";
-        rawLink.rel = "noopener noreferrer";
-        rawLink.textContent = "源文件";
-        tdRaw.appendChild(rawLink);
-
-        tr.appendChild(tdPath);
-        tr.appendChild(tdViewer);
-        tr.appendChild(tdRaw);
-        bodyEl.appendChild(tr);
+      function renderRecent(items) {
+        recentListEl.innerHTML = "";
+        if (!items.length) {
+          recentListEl.innerHTML = "<li>No updates yet.</li>";
+          return;
+        }
+        items.forEach(function (item) {
+          const li = document.createElement("li");
+          li.innerHTML =
+            "<p class=\"item-title\"><a href=\"" + encodeURI(item.url) + "\">" + escapeHtml(item.title || item.path) + "</a></p>" +
+            "<p class=\"item-meta\">" + escapeHtml(item.path) + "</p>" +
+            "<p class=\"item-meta\">Updated: " + escapeHtml(formatDate(item.updated)) + "</p>";
+          recentListEl.appendChild(li);
+        });
       }
 
-      fetchNotes()
-        .then(function (paths) {
-          const notes = paths
-            .filter(function (path) { return typeof path === "string" && isNotePath(path); })
-            .sort(function (a, b) { return a.localeCompare(b, "zh-CN"); });
+      function renderSearchResults(items) {
+        searchResultsEl.innerHTML = "";
+        if (!items.length) {
+          return;
+        }
+        items.forEach(function (item) {
+          const li = document.createElement("li");
+          li.innerHTML =
+            "<p class=\"item-title\"><a href=\"" + encodeURI(item.url) + "\">" + escapeHtml(item.title || item.path) + "</a></p>" +
+            "<p class=\"item-meta\">" + escapeHtml(item.path) + "</p>" +
+            "<p class=\"item-meta\">Updated: " + escapeHtml(formatDate(item.updated)) + "</p>";
+          searchResultsEl.appendChild(li);
+        });
+      }
 
-          if (notes.length === 0) {
-            statusEl.textContent = "未找到笔记文件。";
-            return;
-          }
+      function buildLunrIndex() {
+        if (!window.lunr || !searchDocs.length) {
+          return null;
+        }
+        return window.lunr(function () {
+          this.ref("id");
+          this.field("title");
+          this.field("body");
+          searchDocs.forEach(function (doc) {
+            this.add(doc);
+          }, this);
+        });
+      }
 
-          notes.forEach(renderRow);
-          statusEl.textContent = "共找到 " + notes.length + " 个 Markdown 文件。";
-          tableEl.hidden = false;
+      function searchByContains(query, limit) {
+        const lowered = query.toLowerCase();
+        const arr = searchDocs.filter(function (doc) {
+          return (doc.title || "").toLowerCase().includes(lowered) || (doc.body || "").toLowerCase().includes(lowered);
+        });
+        return arr.slice(0, limit);
+      }
+
+      function runSearch() {
+        const q = searchInputEl.value.trim();
+        if (!q) {
+          searchCountEl.textContent = "Input keyword to search all notes.";
+          searchResultsEl.innerHTML = "";
+          return;
+        }
+
+        let results = [];
+        if (searchIndex) {
+          const lunrHits = searchIndex.search(q + "*");
+          const docMap = new Map(searchDocs.map(function (doc) { return [String(doc.id), doc]; }));
+          results = lunrHits
+            .map(function (hit) { return docMap.get(String(hit.ref)); })
+            .filter(Boolean)
+            .slice(0, 50);
+        }
+
+        if (!results.length || containsCjk(q)) {
+          const fallback = searchByContains(q, 50);
+          const seen = new Set(results.map(function (r) { return r.id; }));
+          fallback.forEach(function (item) {
+            if (!seen.has(item.id)) {
+              results.push(item);
+            }
+          });
+        }
+
+        searchCountEl.textContent = "Found " + results.length + " result(s).";
+        renderSearchResults(results);
+      }
+
+      Promise.all([
+        loadJson("notes.json"),
+        loadJson("recent.json"),
+        loadJson("search-index.json")
+      ])
+        .then(function (payload) {
+          const notesPayload = payload[0];
+          const recentPayload = payload[1];
+          const searchPayload = payload[2];
+
+          notes = Array.isArray(notesPayload.notes) ? notesPayload.notes.slice() : [];
+          notes.sort(function (a, b) {
+            return (a.path || "").localeCompare(b.path || "", "zh-CN");
+          });
+          renderAllNotes();
+
+          const recentItems = Array.isArray(recentPayload) ? recentPayload : [];
+          renderRecent(recentItems);
+
+          searchDocs = Array.isArray(searchPayload) ? searchPayload : [];
+          searchIndex = buildLunrIndex();
+
+          statusEl.textContent = "Loaded " + notes.length + " notes.";
+          searchCountEl.textContent = "Search index ready. Input keyword to search.";
         })
         .catch(function (err) {
-          statusEl.textContent = "加载失败：" + err.message + "。请等待 Pages 工作流完成后刷新。";
+          statusEl.textContent = "Failed to load site indexes: " + err.message;
+          searchCountEl.textContent = "Search is unavailable before index files are generated.";
         });
+
+      searchBtnEl.addEventListener("click", runSearch);
+      searchInputEl.addEventListener("keydown", function (evt) {
+        if (evt.key === "Enter") {
+          runSearch();
+        }
+      });
+      searchInputEl.addEventListener("input", function () {
+        if (!searchInputEl.value.trim()) {
+          searchCountEl.textContent = "Input keyword to search all notes.";
+          searchResultsEl.innerHTML = "";
+        }
+      });
     })();
   </script>
 </body>

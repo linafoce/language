@@ -12,6 +12,14 @@ _site/
 .jekyll-metadata
 .sass-cache/
 
+# Generated site artifacts
+notes/
+notes.json
+search-index.json
+recent.json
+__pycache__/
+*.pyc
+
 # Windows noise
 Thumbs.db
 Desktop.ini

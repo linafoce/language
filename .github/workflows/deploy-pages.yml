@@ -21,36 +21,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install markdown
+      - name: Pre-render notes and build indexes
+        run: |
+          python scripts/build_site.py
       - name: Setup Pages
         uses: actions/configure-pages@v5
-      - name: Generate notes index
-        run: |
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          roots = ("inbox", "courses", "topics")
-          notes = []
-
-          for root in roots:
-              root_path = Path(root)
-              if not root_path.exists():
-                  continue
-              for item in sorted(root_path.rglob("*.md")):
-                  notes.append(item.as_posix())
-
-          payload = {
-              "generated_at": os.getenv("GITHUB_RUN_ID", ""),
-              "notes": notes
-          }
-
-          Path("notes.json").write_text(
-              json.dumps(payload, ensure_ascii=False, indent=2),
-              encoding="utf-8"
-          )
-          print(f"Generated notes.json with {len(notes)} files")
-          PY
       - name: Build with Jekyll
         uses: actions/jekyll-build-pages@v1
         with:

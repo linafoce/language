@@ -1,103 +1,120 @@
-# 日语笔记工作流（GitHub + 自动同步 + GitHub Pages）
+# 日语笔记工作流（Git + 自动同步 + GitHub Pages）
 
 这个仓库用于替代受限笔记 App，实现：
 
-- 你把 Gemini 生成的 Markdown 保存到本地
-- Windows / macOS 自动提交并推送到 GitHub
-- 用 GitHub Pages 公开网页阅读（不依赖 Obsidian 付费服务）
+- 你把 Gemini 生成的 Markdown 保存到本地目录
+- Windows/macOS 自动提交并推送到 GitHub
+- GitHub Pages 自动发布公开站点（含预渲染页面、搜索、最近更新）
 
 ## 目录约定
 
-- `inbox/`：临时输入区（推荐先存这里）
-- `courses/`：主线累计笔记（支持多层子目录）
-- `topics/`：专题笔记（支持多层子目录）
-- `scripts/`：自动同步脚本
-- `logs/`：自动同步日志（本地）
+- `inbox/`：临时输入区（课堂即时落地）
+- `courses/`：主线累计笔记（支持多层目录）
+- `topics/`：专题笔记（支持多层目录）
+- `scripts/`：自动同步与构建脚本
+- `logs/`：本地同步日志
 
-## 快速开始
+## 同步流程
 
-### 1) Git 初始化与远程（已做可跳过）
+自动同步脚本监听 `inbox/`、`courses/`、`topics/` 下的 `.md` 变化，触发：
 
-```powershell
-cd "C:\Users\xiang jun\git\notebook"
-git init
-git branch -M main
-git remote add origin git@github.com:linafoce/language.git
-```
+`git add -A` -> `git commit` -> `git pull --rebase` -> `git push`
 
-### 2) 配置 Git 身份
+断网时本地提交会保留，下一次文件变化会自动重试推送。
 
-```powershell
-git config --global user.name "你的名字"
-git config --global user.email "你的邮箱"
-```
+### Windows
 
-### 3) 启动自动同步（当前会话）
-
-macOS（bash）：
-
-```bash
-bash ./scripts/start-auto-sync.sh
-```
-
-停止后台同步：
-
-```bash
-bash ./scripts/stop-auto-sync.sh
-```
-
-Windows（PowerShell）：
+启动：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File ".\scripts\start-auto-sync.ps1"
 ```
 
-停止后台同步：
+停止：
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File ".\scripts\stop-auto-sync.ps1"
 ```
 
-默认防抖为 15 秒。保存后脚本自动执行：
+### macOS
 
-`git add -A` -> `git commit` -> `git pull --rebase` -> `git push`
+启动：
 
-### 4) 设置开机自动运行（可选）
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File ".\scripts\install-login-task.ps1"
+```bash
+bash ./scripts/start-auto-sync.sh
 ```
 
-移除开机任务：
+停止：
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File ".\scripts\uninstall-login-task.ps1"
+```bash
+bash ./scripts/stop-auto-sync.sh
 ```
 
-## 开启 GitHub Pages（公开站点）
+## GitHub Pages（预渲染）
 
-仓库已经包含：
+部署工作流：`.github/workflows/deploy-pages.yml`
 
-- `index.html`：读取站点内 `notes.json` 生成文件列表（不调用 GitHub API）
-- `viewer.html`：网页渲染 Markdown，支持目录跳转（默认 h1-h3）
-- `.github/workflows/deploy-pages.yml`：推送后自动生成 `notes.json` 并发布
+每次推送后会执行：
 
-你只需要在 GitHub 网页做一次设置：
+1. 运行 `python scripts/build_site.py`
+2. 递归扫描 `inbox/courses/topics` 的 Markdown
+3. 生成：
+   - `notes/<...>.html`（每篇笔记的预渲染页面）
+   - `notes.json`（笔记索引）
+   - `search-index.json`（全文检索索引源）
+   - `recent.json`（最近更新 20 条）
+4. 再由 GitHub Pages 发布静态站点
 
-1. 进入仓库 `Settings` -> `Pages`
-2. `Build and deployment` 的 `Source` 选择 `GitHub Actions`
-3. 回到 `Actions` 等待 `Deploy GitHub Pages` 工作流成功
-4. 打开站点：`https://linafoce.github.io/language/`
+## 网站功能
 
-## 日常使用
+- 首页：`index.html`
+  - 全文搜索（lunr + CJK 包含匹配兜底）
+  - 最近更新列表
+  - 全部笔记列表
+- 阅读页：预渲染 HTML（`notes/...`）
+  - 目录模式切换：`H1` / `H1-H3`（`localStorage` 持久化）
+  - 桌面右侧目录 + 手机抽屉目录
+  - 目录高亮跟随并保持当前项可见
+- 兼容入口：`viewer.html?file=...`
+  - 自动重定向到对应预渲染页面（保留旧链接）
 
-1. 上课时把 Gemini 输出保存为 Markdown 到 `inbox/` 或 `courses/` 下任意层级目录
-2. 文件名建议：`YYYY-MM-DD-主题.md`
-3. 每周整理一次，把内容归档到 `courses/` 或 `topics/` 的长期结构
-4. 在 Pages 站点阅读；日志看 `logs/auto-sync.log`
+## 截图草稿自动化（v1）
+
+目标：先生成草稿，再人工确认合并，避免直接污染主笔记。
+
+### 1) 生成草稿
+
+```bash
+python scripts/generate_draft_from_images.py <folder> --topic <topic>
+```
+
+输出：`inbox/drafts/<date>-<topic>.md`
+
+也可用包装命令：
+
+- PowerShell: `.\scripts\generate-draft-from-images.ps1 <folder> [-Topic <topic>]`
+- Bash: `bash ./scripts/generate-draft-from-images.sh <folder> [topic]`
+
+### 2) 手动确认后合并
+
+```bash
+python scripts/merge_draft.py <draft-file> <target-file>
+```
+
+也可用包装命令：
+
+- PowerShell: `.\scripts\merge-draft.ps1 <draft-file> <target-file>`
+- Bash: `bash ./scripts/merge-draft.sh <draft-file> <target-file>`
+
+## 多设备协作建议
+
+- 多台电脑都克隆同一仓库
+- 编辑前先 `git pull --rebase`
+- 编辑后再 push
+- 同一文件多端同时改会出现冲突，按 Git 正常流程手动解决
 
 ## 注意事项
 
-- 这是公开 Pages，任何人都可访问站点内容。
-- 同一文件多端并发修改可能出现 `pull --rebase` 冲突，需手动解决。
-- 网络失败时本地提交会保留，后续变更会自动重试推送。
+- 这是公开 Pages，任何人都可访问站点内容
+- 图片、附件建议使用相对路径并与 Markdown 一起纳入 Git
+- 本仓库不依赖 Obsidian 付费同步
