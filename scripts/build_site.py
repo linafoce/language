@@ -21,6 +21,7 @@ NOTES_OUT_DIR = ROOT / "notes"
 TOC_MODE_KEY = "tocMode"
 EXCLUDED_NOTE_PATTERNS = (
     re.compile(r"^inbox/\d{4}-\d{2}-\d{2}-\d{6}-auto-sync-test(?:-\d+)?\.md$", re.IGNORECASE),
+    re.compile(r"^courses/.+\.backup-\d{8}-\d{6}\.md$", re.IGNORECASE),
 )
 
 
@@ -70,10 +71,10 @@ NOTE_TEMPLATE = r"""<!doctype html>
       overflow: hidden;
     }
     .wrap {
-      max-width: 1280px;
+      max-width: 1520px;
       height: 100vh;
       margin: 0 auto;
-      padding: 16px;
+      padding: 16px 20px;
       display: grid;
       grid-template-rows: auto minmax(0, 1fr);
       gap: 16px;
@@ -119,7 +120,7 @@ NOTE_TEMPLATE = r"""<!doctype html>
     .layout {
       min-height: 0;
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 320px;
+      grid-template-columns: minmax(0, 1fr) 290px;
       gap: 16px;
       align-items: stretch;
     }
@@ -128,7 +129,7 @@ NOTE_TEMPLATE = r"""<!doctype html>
       min-width: 0;
       min-height: 0;
       height: 100%;
-      padding: 20px;
+      padding: 28px 32px;
       overflow-y: auto;
       overflow-x: auto;
     }
