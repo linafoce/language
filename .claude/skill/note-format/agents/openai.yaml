@@ -1,0 +1,4 @@
+interface:
+  display_name: "Note Format"
+  short_description: "Normalize Japanese notes into a consistent markdown structure."
+  default_prompt: "Use $note-format to clean or standardize a Japanese grammar markdown note."
