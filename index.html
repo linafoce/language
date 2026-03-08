@@ -244,6 +244,11 @@
         return /[\u3400-\u9FFF]/.test(text);
       }
 
+      function isVisibleNote(note) {
+        const path = String((note && note.path) || "");
+        return !/^inbox\/\d{4}-\d{2}-\d{2}-\d{6}-auto-sync-test(?:-\d+)?\.md$/i.test(path);
+      }
+
       function loadJson(path) {
         return fetch(path + "?ts=" + Date.now(), { cache: "no-store" })
           .then(function (resp) {
@@ -363,16 +368,16 @@
           const recentPayload = payload[1];
           const searchPayload = payload[2];
 
-          notes = Array.isArray(notesPayload.notes) ? notesPayload.notes.slice() : [];
+          notes = Array.isArray(notesPayload.notes) ? notesPayload.notes.filter(isVisibleNote) : [];
           notes.sort(function (a, b) {
             return (a.path || "").localeCompare(b.path || "", "zh-CN");
           });
           renderAllNotes();
 
-          const recentItems = Array.isArray(recentPayload) ? recentPayload : [];
+          const recentItems = Array.isArray(recentPayload) ? recentPayload.filter(isVisibleNote) : [];
           renderRecent(recentItems);
 
-          searchDocs = Array.isArray(searchPayload) ? searchPayload : [];
+          searchDocs = Array.isArray(searchPayload) ? searchPayload.filter(isVisibleNote) : [];
           searchIndex = buildLunrIndex();
 
           statusEl.textContent = "Loaded " + notes.length + " notes.";

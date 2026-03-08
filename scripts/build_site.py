@@ -19,6 +19,9 @@ ROOT = Path(__file__).resolve().parent.parent
 SOURCE_ROOTS = ("inbox", "courses", "topics")
 NOTES_OUT_DIR = ROOT / "notes"
 TOC_MODE_KEY = "tocMode"
+EXCLUDED_NOTE_PATTERNS = (
+    re.compile(r"^inbox/\d{4}-\d{2}-\d{2}-\d{6}-auto-sync-test(?:-\d+)?\.md$", re.IGNORECASE),
+)
 
 
 @dataclass
@@ -53,18 +56,27 @@ NOTE_TEMPLATE = r"""<!doctype html>
       --shadow: 0 8px 24px rgba(31, 35, 40, 0.15);
     }
     * { box-sizing: border-box; }
-    html { scroll-behavior: smooth; }
+    html {
+      height: 100%;
+      scroll-behavior: smooth;
+    }
     body {
+      height: 100%;
       margin: 0;
       background: var(--bg);
       color: var(--text);
       font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
       line-height: 1.7;
+      overflow: hidden;
     }
     .wrap {
       max-width: 1280px;
-      margin: 24px auto;
-      padding: 0 16px;
+      height: 100vh;
+      margin: 0 auto;
+      padding: 16px;
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: 16px;
     }
     .card {
       background: var(--card);
@@ -72,7 +84,6 @@ NOTE_TEMPLATE = r"""<!doctype html>
       border-radius: 10px;
       padding: 16px;
     }
-    .head { margin-bottom: 16px; }
     .meta {
       color: var(--muted);
       font-size: 14px;
@@ -106,15 +117,19 @@ NOTE_TEMPLATE = r"""<!doctype html>
     }
 
     .layout {
+      min-height: 0;
       display: grid;
       grid-template-columns: minmax(0, 1fr) 320px;
       gap: 16px;
-      align-items: start;
+      align-items: stretch;
     }
 
     #content {
       min-width: 0;
+      min-height: 0;
+      height: 100%;
       padding: 20px;
+      overflow-y: auto;
       overflow-x: auto;
     }
     #content.markdown-body {
@@ -123,10 +138,12 @@ NOTE_TEMPLATE = r"""<!doctype html>
     }
     #content h1, #content h2, #content h3 { scroll-margin-top: 18px; }
 
+    .desktop-toc {
+      min-height: 0;
+    }
     .toc-panel {
-      position: sticky;
-      top: 12px;
-      max-height: calc(100vh - 24px);
+      height: 100%;
+      max-height: none;
       overflow-y: auto;
       overflow-x: hidden;
     }
@@ -234,9 +251,25 @@ NOTE_TEMPLATE = r"""<!doctype html>
     }
 
     @media (max-width: 820px), (pointer: coarse) and (max-width: 1200px) {
+      body {
+        height: auto;
+        overflow: auto;
+      }
+      .wrap {
+        height: auto;
+        min-height: 100vh;
+        margin: 24px auto;
+        padding: 0 16px 24px;
+        display: block;
+      }
       .layout { grid-template-columns: 1fr; }
       .desktop-toc { display: none; }
       .toc-fab { display: inline-block; }
+      #content {
+        height: auto;
+        min-height: unset;
+        overflow-y: visible;
+      }
     }
   </style>
 </head>
@@ -327,8 +360,40 @@ __CONTENT__
         return cleaned || "section";
       }
 
+      function getAllHeadings() {
+        return Array.from(contentEl.querySelectorAll("h1,h2,h3"));
+      }
+
+      function normalizeHeadingText(text) {
+        return (text || "").replace(/\s+/g, " ").trim();
+      }
+
+      function isDocumentTitleHeading(node, allHeadings) {
+        if (node.tagName !== "H1" || allHeadings.length <= 1) {
+          return false;
+        }
+        const pageTitle = normalizeHeadingText(document.getElementById("title").textContent);
+        return normalizeHeadingText(node.textContent) === pageTitle;
+      }
+
+      function looksLikeTopLevelEntry(text) {
+        const normalized = normalizeHeadingText(text);
+        if (/^语法笔记[:：]?\s*\d+\b/.test(normalized)) {
+          return true;
+        }
+        if (!/^\d+\b/.test(normalized)) {
+          return false;
+        }
+        return /[～〜~]|[ぁ-ゖァ-ヺ]{2,}/.test(normalized);
+      }
+
+      function getLeadingNumber(text) {
+        const match = normalizeHeadingText(text).match(/^(\d+)\b/);
+        return match ? Number(match[1]) : null;
+      }
+
       function ensureHeadingIds() {
-        const all = Array.from(contentEl.querySelectorAll("h1,h2,h3"));
+        const all = getAllHeadings();
         const used = {};
         all.forEach(function (node) {
           const base = node.id && node.id.trim() ? node.id.trim() : slugify(node.textContent || "");
@@ -343,10 +408,49 @@ __CONTENT__
         });
       }
 
+      function getTopLevelHeadings() {
+        const all = getAllHeadings();
+        const filtered = all.filter(function (node) {
+          return !isDocumentTitleHeading(node, all);
+        });
+        const topLevel = [];
+        let lastNumber = null;
+
+        filtered.forEach(function (node) {
+          const text = node.textContent || "";
+          if (!looksLikeTopLevelEntry(text)) {
+            return;
+          }
+
+          const normalized = normalizeHeadingText(text);
+          const number = getLeadingNumber(normalized);
+          const isExplicit = /^语法笔记[:：]?\s*\d+\b/.test(normalized);
+
+          if (isExplicit || topLevel.length === 0 || number === null || lastNumber === null || number > lastNumber) {
+            topLevel.push(node);
+            if (number !== null) {
+              lastNumber = number;
+            }
+          }
+        });
+
+        if (topLevel.length >= 3) {
+          return topLevel;
+        }
+
+        const h1Only = filtered.filter(function (node) {
+          return node.tagName === "H1";
+        });
+        return h1Only.length ? h1Only : filtered;
+      }
+
       function getHeadingsByMode() {
-        const all = Array.from(contentEl.querySelectorAll("h1,h2,h3"));
+        const allHeadings = getAllHeadings();
+        const all = allHeadings.filter(function (node) {
+          return !isDocumentTitleHeading(node, allHeadings);
+        });
         if (mode === "h1") {
-          return all.filter(function (h) { return h.tagName === "H1"; });
+          return getTopLevelHeadings();
         }
         return all;
       }
@@ -424,7 +528,11 @@ __CONTENT__
         if (!headingNodes.length) {
           return;
         }
-        const triggerY = window.innerHeight * 0.28;
+        let triggerY = window.innerHeight * 0.28;
+        if (!isMobileLayout()) {
+          const contentRect = contentEl.getBoundingClientRect();
+          triggerY = contentRect.top + Math.min(contentEl.clientHeight * 0.28, 180);
+        }
         let candidate = headingNodes[0].id;
         for (let i = 0; i < headingNodes.length; i += 1) {
           const top = headingNodes[i].getBoundingClientRect().top;
@@ -451,7 +559,11 @@ __CONTENT__
         }
 
         const items = selected.map(function (h) {
-          return { id: h.id, text: (h.textContent || "").trim(), level: Number(h.tagName.slice(1)) };
+          return {
+            id: h.id,
+            text: (h.textContent || "").trim(),
+            level: mode === "h1" ? 1 : Number(h.tagName.slice(1))
+          };
         });
 
         const desktopMap = createTree(items, desktopTocEl);
@@ -462,13 +574,25 @@ __CONTENT__
         headingNodes = selected;
 
         document.querySelectorAll("#desktop-toc a, #mobile-toc a").forEach(function (a) {
-          a.addEventListener("click", function () {
+          a.addEventListener("click", function (event) {
+            event.preventDefault();
             const id = a.dataset.targetId;
+            const target = document.getElementById(id);
+            if (!target) {
+              return;
+            }
+            target.scrollIntoView({ behavior: "smooth", block: "start" });
+            if (window.history && window.history.replaceState) {
+              window.history.replaceState(null, "", "#" + id);
+            }
             setActive(id);
             if (isMobileLayout()) {
               closeDrawer();
             }
-            setTimeout(function () { setActive(id); }, 120);
+            setTimeout(function () {
+              updateActiveFromViewport();
+              setActive(id);
+            }, 160);
           });
         });
 
@@ -510,10 +634,22 @@ __CONTENT__
         } else {
           tocFabEl.style.display = "inline-block";
         }
+        updateActiveFromViewport();
       });
 
       window.addEventListener("scroll", function () {
         if (ticking) {
+          return;
+        }
+        ticking = true;
+        requestAnimationFrame(function () {
+          updateActiveFromViewport();
+          ticking = false;
+        });
+      }, { passive: true });
+
+      contentEl.addEventListener("scroll", function () {
+        if (isMobileLayout() || ticking) {
           return;
         }
         ticking = true;
@@ -622,6 +758,10 @@ def render_note_page(note: Note) -> str:
     return html_doc
 
 
+def should_include_note(rel_path: str) -> bool:
+    return not any(pattern.search(rel_path) for pattern in EXCLUDED_NOTE_PATTERNS)
+
+
 def load_notes(owner: str, repo: str) -> List[Note]:
     notes: List[Note] = []
     for root_name in SOURCE_ROOTS:
@@ -630,6 +770,8 @@ def load_notes(owner: str, repo: str) -> List[Note]:
             continue
         for path in sorted(root_dir.rglob("*.md")):
             rel = path.relative_to(ROOT).as_posix()
+            if not should_include_note(rel):
+                continue
             md_text = path.read_text(encoding="utf-8-sig")
             title = extract_title(md_text, path.stem)
             updated = run_git_last_updated(rel)
