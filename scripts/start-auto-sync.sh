@@ -7,6 +7,7 @@ DEFAULT_REPO_PATH="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 REPO_PATH="$DEFAULT_REPO_PATH"
 DEBOUNCE_SECONDS=15
+SYNC_INTERVAL_SECONDS=120
 POLL_SECONDS=2
 PID_FILE=""
 LOG_FILE=""
@@ -16,6 +17,7 @@ usage() {
 Usage: start-auto-sync.sh [options]
   --repo-path PATH          Git repo path (default: script parent directory)
   --debounce-seconds N      Debounce delay before sync (default: 15)
+  --sync-interval-seconds N Periodic pull interval when idle (default: 120, 0=disable)
   --poll-seconds N          Poll interval for file change detection (default: 2)
   --pid-file PATH           PID file path (default: <repo>/logs/auto-sync.pid)
   --log-file PATH           Log path (default: <repo>/logs/auto-sync.log)
@@ -31,6 +33,10 @@ while [[ $# -gt 0 ]]; do
     ;;
   --debounce-seconds)
     DEBOUNCE_SECONDS="$2"
+    shift 2
+    ;;
+  --sync-interval-seconds)
+    SYNC_INTERVAL_SECONDS="$2"
     shift 2
     ;;
   --poll-seconds)
@@ -92,6 +98,7 @@ fi
 nohup "$AUTO_SYNC_SCRIPT" \
   --repo-path "$REPO_PATH" \
   --debounce-seconds "$DEBOUNCE_SECONDS" \
+  --sync-interval-seconds "$SYNC_INTERVAL_SECONDS" \
   --poll-seconds "$POLL_SECONDS" \
   --log-file "$LOG_FILE" \
   >/dev/null 2>&1 &

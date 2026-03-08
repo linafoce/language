@@ -7,6 +7,7 @@ DEFAULT_REPO_PATH="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 REPO_PATH="$DEFAULT_REPO_PATH"
 DEBOUNCE_SECONDS=15
+SYNC_INTERVAL_SECONDS=120
 POLL_SECONDS=2
 WATCH_FOLDERS=("inbox" "courses" "topics")
 LOG_FILE=""
@@ -22,6 +23,7 @@ usage() {
 Usage: auto-sync.sh [options]
   --repo-path PATH          Git repo path (default: script parent directory)
   --debounce-seconds N      Debounce delay before sync (default: 15)
+  --sync-interval-seconds N Periodic pull interval when idle (default: 120, 0=disable)
   --poll-seconds N          Poll interval for file change detection (default: 2)
   --watch-folders LIST      Comma separated folders (default: inbox,courses,topics)
   --log-file PATH           Log path (default: <repo>/logs/auto-sync.log)
@@ -135,6 +137,54 @@ get_ahead_count() {
   else
     printf '0'
   fi
+}
+
+is_working_tree_clean() {
+  run_git allow_fail status --porcelain
+  [[ $GIT_LAST_EXIT -eq 0 && -z "$GIT_LAST_OUTPUT" ]]
+}
+
+invoke_pull_only() {
+  if [[ $IS_SYNCING -eq 1 ]]; then
+    return 0
+  fi
+
+  IS_SYNCING=1
+
+  if ! test_git_repository; then
+    IS_SYNCING=0
+    return 1
+  fi
+
+  if ! get_current_branch >/dev/null 2>&1; then
+    IS_SYNCING=0
+    return 1
+  fi
+
+  if ! has_origin || ! has_upstream; then
+    IS_SYNCING=0
+    return 0
+  fi
+
+  if ! is_working_tree_clean; then
+    write_log "INFO" "Periodic pull skipped because local workspace has uncommitted changes."
+    IS_SYNCING=0
+    return 0
+  fi
+
+  run_git allow_fail pull --rebase
+  if [[ $GIT_LAST_EXIT -ne 0 ]]; then
+    write_log "ERROR" "Periodic pull --rebase failed. $GIT_LAST_OUTPUT"
+    IS_SYNCING=0
+    return 1
+  fi
+
+  if [[ -n "$GIT_LAST_OUTPUT" ]] && [[ ! "$GIT_LAST_OUTPUT" =~ [Aa]lready[[:space:]-]+up[[:space:]-]+to[[:space:]-]+date ]] && [[ ! "$GIT_LAST_OUTPUT" =~ up[[:space:]]to[[:space:]]date ]]; then
+    write_log "INFO" "Periodic pull applied updates."
+  fi
+
+  IS_SYNCING=0
+  return 0
 }
 
 invoke_sync() {
@@ -266,6 +316,10 @@ while [[ $# -gt 0 ]]; do
     DEBOUNCE_SECONDS="$2"
     shift 2
     ;;
+  --sync-interval-seconds)
+    SYNC_INTERVAL_SECONDS="$2"
+    shift 2
+    ;;
   --poll-seconds)
     POLL_SECONDS="$2"
     shift 2
@@ -305,6 +359,11 @@ if ! is_integer "$DEBOUNCE_SECONDS"; then
   exit 1
 fi
 
+if ! is_integer "$SYNC_INTERVAL_SECONDS"; then
+  printf "sync-interval-seconds must be an integer: %s\n" "$SYNC_INTERVAL_SECONDS" >&2
+  exit 1
+fi
+
 if ! is_integer "$POLL_SECONDS"; then
   printf "poll-seconds must be an integer: %s\n" "$POLL_SECONDS" >&2
   exit 1
@@ -322,10 +381,12 @@ fi
 trap cleanup INT TERM EXIT
 
 write_log "INFO" "Auto sync started. Repo='$REPO_PATH', debounce=${DEBOUNCE_SECONDS}s."
+write_log "INFO" "Periodic pull interval: ${SYNC_INTERVAL_SECONDS}s."
 write_log "INFO" "Watching folders: ${WATCH_FOLDERS[*]} (poll=${POLL_SECONDS}s)."
 
 previous_snapshot="$(snapshot_watch_folders)"
 last_change_epoch=0
+last_periodic_sync_epoch="$(date +%s)"
 
 while true; do
   current_snapshot="$(snapshot_watch_folders)"
@@ -341,6 +402,16 @@ while true; do
       invoke_sync || true
       previous_snapshot="$(snapshot_watch_folders)"
       last_change_epoch=0
+      last_periodic_sync_epoch="$now_epoch"
+    fi
+  fi
+
+  if [[ "$SYNC_INTERVAL_SECONDS" -gt 0 && "$last_change_epoch" -eq 0 ]]; then
+    now_epoch="$(date +%s)"
+    if ((now_epoch - last_periodic_sync_epoch >= SYNC_INTERVAL_SECONDS)); then
+      invoke_pull_only || true
+      previous_snapshot="$(snapshot_watch_folders)"
+      last_periodic_sync_epoch="$now_epoch"
     fi
   fi
 

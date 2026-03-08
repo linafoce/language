@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
     [string]$RepoPath = "",
-    [int]$DebounceSeconds = 15
+    [int]$DebounceSeconds = 15,
+    [int]$SyncIntervalSeconds = 120
 )
 
 Set-StrictMode -Version Latest
@@ -38,7 +39,8 @@ $arguments = @(
     "-ExecutionPolicy", "Bypass",
     "-File", "`"$autoSyncScript`"",
     "-RepoPath", "`"$RepoPath`"",
-    "-DebounceSeconds", $DebounceSeconds
+    "-DebounceSeconds", $DebounceSeconds,
+    "-SyncIntervalSeconds", $SyncIntervalSeconds
 )
 
 Start-Process -FilePath "powershell.exe" -ArgumentList $arguments -WindowStyle Hidden | Out-Null

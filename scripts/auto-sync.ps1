@@ -2,6 +2,7 @@
 param(
     [string]$RepoPath = "",
     [int]$DebounceSeconds = 15,
+    [int]$SyncIntervalSeconds = 120,
     [string[]]$WatchFolders = @("inbox", "courses", "topics"),
     [string]$LogFile = "",
     [switch]$RunOnce
@@ -121,6 +122,14 @@ function Test-HasUpstream {
     return $result.ExitCode -eq 0
 }
 
+function Test-WorkingTreeClean {
+    $result = Invoke-Git -GitArgs @("status", "--porcelain") -AllowFail
+    if ($result.ExitCode -ne 0) {
+        return $false
+    }
+    return [string]::IsNullOrWhiteSpace($result.Output)
+}
+
 function Get-AheadCount {
     if (-not (Test-HasUpstream)) {
         return 0
@@ -137,6 +146,52 @@ function Get-AheadCount {
     }
 
     return 0
+}
+
+function Invoke-PullOnly {
+    if ($script:IsSyncing) {
+        return
+    }
+
+    $script:IsSyncing = $true
+    try {
+        if (-not (Test-GitRepository)) {
+            return
+        }
+
+        $branch = Get-CurrentBranch
+        if ([string]::IsNullOrWhiteSpace($branch)) {
+            return
+        }
+
+        if (-not (Test-HasOrigin)) {
+            return
+        }
+
+        if (-not (Test-HasUpstream)) {
+            return
+        }
+
+        if (-not (Test-WorkingTreeClean)) {
+            Write-Log -Message "Periodic pull skipped because local workspace has uncommitted changes."
+            return
+        }
+
+        $pull = Invoke-Git -GitArgs @("pull", "--rebase") -AllowFail
+        if ($pull.ExitCode -ne 0) {
+            Write-Log -Level "ERROR" -Message "Periodic pull --rebase failed. $($pull.Output)"
+            return
+        }
+
+        $pullOut = $pull.Output.Trim()
+        if (-not [string]::IsNullOrWhiteSpace($pullOut) -and
+            $pullOut -notmatch "Already up[ -]to[ -]date" -and
+            $pullOut -notmatch "up to date") {
+            Write-Log -Message "Periodic pull applied updates."
+        }
+    } finally {
+        $script:IsSyncing = $false
+    }
 }
 
 function Invoke-Sync {
@@ -249,10 +304,12 @@ if ($RunOnce) {
 }
 
 Write-Log -Message "Auto sync started. Repo='$RepoPath', debounce=${DebounceSeconds}s."
+Write-Log -Message "Periodic pull interval: ${SyncIntervalSeconds}s."
 $registeredWatchers = Register-Watchers
 Write-Log -Message ("Watching folders: {0}" -f ($WatchFolders -join ", "))
 
 $lastChange = $null
+$lastPeriodicPull = Get-Date
 
 try {
     while ($true) {
@@ -282,6 +339,15 @@ try {
             if ($elapsed.TotalSeconds -ge $DebounceSeconds) {
                 Invoke-Sync
                 $lastChange = $null
+                $lastPeriodicPull = Get-Date
+            }
+        }
+
+        if ($SyncIntervalSeconds -gt 0 -and $null -eq $lastChange) {
+            $intervalElapsed = (Get-Date) - $lastPeriodicPull
+            if ($intervalElapsed.TotalSeconds -ge $SyncIntervalSeconds) {
+                Invoke-PullOnly
+                $lastPeriodicPull = Get-Date
             }
         }
     }
