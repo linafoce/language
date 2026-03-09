@@ -106,6 +106,32 @@ python scripts/merge_draft.py <draft-file> <target-file>
 - PowerShell: `.\scripts\merge-draft.ps1 <draft-file> <target-file>`
 - Bash: `bash ./scripts/merge-draft.sh <draft-file> <target-file>`
 
+## Skill 维护
+
+- 仓库内 `.claude/skill/` 是唯一可编辑真源
+- `~/.codex/skills/` 只作为本机安装目录，不手工修改
+- 编辑或新增 skill 后，先同步再使用
+
+### Windows
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File ".\scripts\sync-skills.ps1"
+```
+
+### macOS
+
+```bash
+bash ./scripts/sync-skills.sh
+```
+
+同步脚本会：
+
+- 扫描 `.claude/skill/*`
+- 只同步包含 `SKILL.md` 的合法 skill
+- 优先调用 `quick_validate.py` 做校验
+- 覆盖同名已安装 skill
+- 不删除 `.system` 或其他非仓库来源的 skill
+
 ## 多设备协作建议
 
 - 多台电脑都克隆同一仓库

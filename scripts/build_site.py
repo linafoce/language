@@ -24,6 +24,13 @@ EXCLUDED_NOTE_PATTERNS = (
     re.compile(r"^courses/.+\.backup-\d{8}-\d{6}\.md$", re.IGNORECASE),
 )
 
+LIST_MARKER_RE = re.compile(r"^(?:[*+-]\s+|\d+\.\s+)")
+FENCE_RE = re.compile(r"^\s*(```|~~~)")
+INDENTED_CODE_RE = re.compile(r"^(?: {4,}|\t)")
+BLOCKQUOTE_RE = re.compile(r"^\s*>")
+HR_RE = re.compile(r"^\s{0,3}(?:[-*_]\s*){3,}$")
+TABLE_RE = re.compile(r"^\s*\|")
+
 
 @dataclass
 class Note:
@@ -759,9 +766,54 @@ def run_git_last_updated(rel_path: str) -> str:
     return dt.isoformat()
 
 
+def normalize_markdown_lists(md_text: str) -> str:
+    lines = md_text.splitlines()
+    normalized: List[str] = []
+    in_fence = False
+
+    for line in lines:
+        stripped = line.strip()
+
+        if FENCE_RE.match(line):
+            in_fence = not in_fence
+            normalized.append(line)
+            continue
+
+        if in_fence:
+            normalized.append(line)
+            continue
+
+        is_list_item = bool(LIST_MARKER_RE.match(line))
+        if is_list_item and normalized:
+            prev_line = normalized[-1]
+            prev_stripped = prev_line.strip()
+            prev_is_special = (
+                not prev_stripped
+                or LIST_MARKER_RE.match(prev_line)
+                or INDENTED_CODE_RE.match(prev_line)
+                or BLOCKQUOTE_RE.match(prev_line)
+                or HR_RE.match(prev_line)
+                or TABLE_RE.match(prev_line)
+                or FENCE_RE.match(prev_line)
+            )
+            current_is_special = (
+                INDENTED_CODE_RE.match(line)
+                or BLOCKQUOTE_RE.match(line)
+                or TABLE_RE.match(line)
+            )
+            if not prev_is_special and not current_is_special:
+                normalized.append("")
+
+        normalized.append(line)
+
+    if md_text.endswith("\n"):
+        return "\n".join(normalized) + "\n"
+    return "\n".join(normalized)
+
+
 def md_to_html(md_text: str) -> str:
     return markdown.markdown(
-        md_text,
+        normalize_markdown_lists(md_text),
         extensions=["extra", "sane_lists", "fenced_code", "tables"],
     )
 
