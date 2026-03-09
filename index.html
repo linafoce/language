@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
@@ -277,7 +277,7 @@
         <input id="search-input" type="text" placeholder="Search title or content, e.g. 〜にくい / 受け身">
         <button id="search-btn" type="button">Search</button>
       </div>
-      <p id="search-count" class="result-count">Search index is loading...</p>
+      <p id="search-count" class="result-count">Input keyword to search. Search index loads on demand.</p>
       <ul id="search-results" class="list"></ul>
     </section>
 
@@ -301,6 +301,7 @@
       let notes = [];
       let searchDocs = [];
       let searchIndex = null;
+      let searchIndexPromise = null;
 
       function formatDate(isoText) {
         if (!isoText) {
@@ -329,7 +330,7 @@
       function isVisibleNote(note) { return true; }
 
       function loadJson(path) {
-        return fetch(path + "?ts=" + Date.now(), { cache: "no-store" })
+        return fetch(path)
           .then(function (resp) {
             if (!resp.ok) {
               throw new Error("HTTP " + resp.status + " while loading " + path);
@@ -416,6 +417,14 @@
         });
       }
 
+      function sortByUpdatedDesc(items) {
+        return items.slice().sort(function (a, b) {
+          const aTime = Date.parse(a && a.updated ? a.updated : "") || 0;
+          const bTime = Date.parse(b && b.updated ? b.updated : "") || 0;
+          return bTime - aTime;
+        });
+      }
+
       function renderSearchResults(items) {
         searchResultsEl.innerHTML = "";
         if (!items.length) {
@@ -453,6 +462,32 @@
         return arr.slice(0, limit);
       }
 
+      function ensureSearchIndexLoaded() {
+        if (searchIndex) {
+          return Promise.resolve();
+        }
+        if (searchIndexPromise) {
+          return searchIndexPromise;
+        }
+
+        searchCountEl.textContent = "Loading search index...";
+        searchIndexPromise = loadJson("search-index.json")
+          .then(function (searchPayload) {
+            searchDocs = Array.isArray(searchPayload) ? searchPayload.filter(isVisibleNote) : [];
+            searchIndex = buildLunrIndex();
+            searchCountEl.textContent = "Search index ready. Input keyword to search.";
+          })
+          .catch(function (err) {
+            searchCountEl.textContent = "Search index failed to load: " + err.message;
+            throw err;
+          })
+          .finally(function () {
+            searchIndexPromise = null;
+          });
+
+        return searchIndexPromise;
+      }
+
       function runSearch() {
         const q = searchInputEl.value.trim();
         if (!q) {
@@ -461,61 +496,57 @@
           return;
         }
 
-        let results = [];
-        if (searchIndex) {
-          const lunrHits = searchIndex.search(q + "*");
-          const docMap = new Map(searchDocs.map(function (doc) { return [String(doc.id), doc]; }));
-          results = lunrHits
-            .map(function (hit) { return docMap.get(String(hit.ref)); })
-            .filter(Boolean)
-            .slice(0, 50);
-        }
-
-        if (!results.length || containsCjk(q)) {
-          const fallback = searchByContains(q, 50);
-          const seen = new Set(results.map(function (r) { return r.id; }));
-          fallback.forEach(function (item) {
-            if (!seen.has(item.id)) {
-              results.push(item);
+        ensureSearchIndexLoaded()
+          .then(function () {
+            let results = [];
+            if (searchIndex) {
+              const lunrHits = searchIndex.search(q + "*");
+              const docMap = new Map(searchDocs.map(function (doc) { return [String(doc.id), doc]; }));
+              results = lunrHits
+                .map(function (hit) { return docMap.get(String(hit.ref)); })
+                .filter(Boolean)
+                .slice(0, 50);
             }
-          });
-        }
 
-        searchCountEl.textContent = "Found " + results.length + " result(s).";
-        renderSearchResults(results);
+            if (!results.length || containsCjk(q)) {
+              const fallback = searchByContains(q, 50);
+              const seen = new Set(results.map(function (r) { return r.id; }));
+              fallback.forEach(function (item) {
+                if (!seen.has(item.id)) {
+                  results.push(item);
+                }
+              });
+            }
+
+            searchCountEl.textContent = "Found " + results.length + " result(s).";
+            renderSearchResults(results);
+          })
+          .catch(function () {
+            searchResultsEl.innerHTML = "";
+          });
       }
 
-      Promise.all([
-        loadJson("notes.json"),
-        loadJson("recent.json"),
-        loadJson("search-index.json")
-      ])
-        .then(function (payload) {
-          const notesPayload = payload[0];
-          const recentPayload = payload[1];
-          const searchPayload = payload[2];
-
+      loadJson("notes.json")
+        .then(function (notesPayload) {
           notes = Array.isArray(notesPayload.notes) ? notesPayload.notes.filter(isVisibleNote) : [];
           notes.sort(function (a, b) {
             return (a.path || "").localeCompare(b.path || "", "zh-CN");
           });
           renderAllNotes();
-
-          const recentItems = Array.isArray(recentPayload) ? recentPayload.filter(isVisibleNote) : [];
-          renderRecent(recentItems);
-
-          searchDocs = Array.isArray(searchPayload) ? searchPayload.filter(isVisibleNote) : [];
-          searchIndex = buildLunrIndex();
+          renderRecent(sortByUpdatedDesc(notes));
 
           statusEl.textContent = "Loaded " + notes.length + " notes.";
-          searchCountEl.textContent = "Search index ready. Input keyword to search.";
+          searchCountEl.textContent = "Input keyword to search. Search index will load on demand.";
         })
         .catch(function (err) {
           statusEl.textContent = "Failed to load site indexes: " + err.message;
-          searchCountEl.textContent = "Search is unavailable before index files are generated.";
+          searchCountEl.textContent = "Search is unavailable before notes index is generated.";
         });
 
       searchBtnEl.addEventListener("click", runSearch);
+      searchInputEl.addEventListener("focus", function () {
+        ensureSearchIndexLoaded().catch(function () {});
+      }, { once: true });
       searchInputEl.addEventListener("keydown", function (evt) {
         if (evt.key === "Enter") {
           runSearch();
