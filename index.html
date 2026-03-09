@@ -84,6 +84,52 @@
       background: #f6f8fa;
     }
 
+    .recent-strip {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+    .recent-strip h2 {
+      margin: 0 0 8px;
+      font-size: 16px;
+    }
+    .recent-compact {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 6px;
+    }
+    .recent-compact li {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px 12px;
+      align-items: baseline;
+      padding: 6px 0;
+      border-bottom: 1px solid #eef2f6;
+    }
+    .recent-compact li:last-child {
+      border-bottom: 0;
+      padding-bottom: 0;
+    }
+    .recent-main {
+      min-width: 0;
+    }
+    .recent-main a {
+      font-weight: 600;
+    }
+    .recent-path {
+      margin-top: 2px;
+      font-size: 12px;
+      color: var(--muted);
+      word-break: break-all;
+    }
+    .recent-time {
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
     .list {
       list-style: none;
       margin: 0;
@@ -114,23 +160,63 @@
       color: var(--muted);
     }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      overflow: hidden;
-      background: #fff;
+    .tree {
+      margin: 0;
+      padding: 0;
+      list-style: none;
     }
-    th, td {
-      border-bottom: 1px solid var(--line);
-      text-align: left;
-      padding: 10px 12px;
-      font-size: 14px;
-      vertical-align: top;
+    .tree ul {
+      list-style: none;
+      margin: 6px 0 0 18px;
+      padding: 0 0 0 12px;
+      border-left: 1px solid #d8dee4;
     }
-    th { background: #f6f8fa; }
-    tr:last-child td { border-bottom: 0; }
+    .tree li {
+      margin: 6px 0;
+    }
+    .tree-folder,
+    .tree-file {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 6px 0;
+    }
+    .tree-folder-name {
+      font-weight: 600;
+      color: #24292f;
+    }
+    .tree-folder-name::before {
+      content: "▸";
+      display: inline-block;
+      margin-right: 6px;
+      color: #57606a;
+    }
+    .tree-file::before {
+      content: "•";
+      color: #9aa4af;
+      flex: 0 0 auto;
+      margin-top: 1px;
+    }
+    .tree-file-main {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    .tree-file-title {
+      font-weight: 600;
+    }
+    .tree-file-path {
+      margin-top: 2px;
+      font-size: 12px;
+      color: var(--muted);
+      word-break: break-all;
+    }
+    .tree-file-time {
+      flex: 0 0 auto;
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+      padding-top: 1px;
+    }
 
     code {
       background: #f6f8fa;
@@ -154,6 +240,14 @@
       .search {
         grid-template-columns: 1fr;
       }
+      .recent-compact li,
+      .tree-file {
+        grid-template-columns: 1fr;
+      }
+      .recent-time,
+      .tree-file-time {
+        white-space: normal;
+      }
     }
   </style>
 </head>
@@ -171,6 +265,10 @@
       <p class="hint">
         Compatibility: old links like <code>viewer.html?file=courses%2FN2.md</code> still work and will redirect to <code>content/</code>.
       </p>
+      <div class="recent-strip">
+        <h2>Recent</h2>
+        <ul id="recent-list" class="recent-compact"></ul>
+      </div>
     </section>
 
     <section class="card">
@@ -184,23 +282,8 @@
     </section>
 
     <section class="card">
-      <h2>Recent Updates</h2>
-      <ul id="recent-list" class="list"></ul>
-    </section>
-
-    <section class="card">
       <h2>All Notes</h2>
-      <table id="notes-table" hidden>
-        <thead>
-          <tr>
-            <th>Title</th>
-            <th>Path</th>
-            <th>Updated</th>
-            <th>Open</th>
-          </tr>
-        </thead>
-        <tbody id="notes-body"></tbody>
-      </table>
+      <div id="notes-tree"></div>
     </section>
   </div>
 
@@ -208,8 +291,7 @@
   <script>
     (function () {
       const statusEl = document.getElementById("status");
-      const notesTableEl = document.getElementById("notes-table");
-      const notesBodyEl = document.getElementById("notes-body");
+      const notesTreeEl = document.getElementById("notes-tree");
       const recentListEl = document.getElementById("recent-list");
       const searchInputEl = document.getElementById("search-input");
       const searchBtnEl = document.getElementById("search-btn");
@@ -256,32 +338,80 @@
           });
       }
 
-      function renderAllNotes() {
-        notesBodyEl.innerHTML = "";
-        notes.forEach(function (note) {
-          const tr = document.createElement("tr");
-          tr.innerHTML =
-            "<td>" + escapeHtml(note.title || note.path) + "</td>" +
-            "<td><code>" + escapeHtml(note.path) + "</code></td>" +
-            "<td>" + escapeHtml(formatDate(note.updated)) + "</td>" +
-            "<td><a href=\"" + encodeURI(note.url) + "\">Open</a></td>";
-          notesBodyEl.appendChild(tr);
+      function buildTree(items) {
+        const root = { folders: new Map(), files: [] };
+
+        items.forEach(function (note) {
+          const parts = String(note.path || "").split("/");
+          let node = root;
+          for (let i = 0; i < parts.length - 1; i += 1) {
+            const part = parts[i];
+            if (!node.folders.has(part)) {
+              node.folders.set(part, { folders: new Map(), files: [] });
+            }
+            node = node.folders.get(part);
+          }
+          node.files.push(note);
         });
-        notesTableEl.hidden = notes.length === 0;
+
+        return root;
+      }
+
+      function renderTreeNode(node) {
+        const ul = document.createElement("ul");
+        ul.className = "tree";
+
+        Array.from(node.folders.keys()).sort(function (a, b) {
+          return a.localeCompare(b, "zh-CN");
+        }).forEach(function (folderName) {
+          const childNode = node.folders.get(folderName);
+          const li = document.createElement("li");
+          li.innerHTML = "<div class=\"tree-folder\"><span class=\"tree-folder-name\">" + escapeHtml(folderName) + "</span></div>";
+          li.appendChild(renderTreeNode(childNode));
+          ul.appendChild(li);
+        });
+
+        node.files.sort(function (a, b) {
+          return (a.path || "").localeCompare(b.path || "", "zh-CN");
+        }).forEach(function (note) {
+          const li = document.createElement("li");
+          li.innerHTML =
+            "<div class=\"tree-file\">" +
+              "<div class=\"tree-file-main\">" +
+                "<div class=\"tree-file-title\"><a href=\"" + encodeURI(note.url) + "\">" + escapeHtml(note.title || note.path) + "</a></div>" +
+                "<div class=\"tree-file-path\">" + escapeHtml(note.path) + "</div>" +
+              "</div>" +
+              "<div class=\"tree-file-time\">" + escapeHtml(formatDate(note.updated)) + "</div>" +
+            "</div>";
+          ul.appendChild(li);
+        });
+
+        return ul;
+      }
+
+      function renderAllNotes() {
+        notesTreeEl.innerHTML = "";
+        if (!notes.length) {
+          notesTreeEl.innerHTML = "<p>No notes yet.</p>";
+          return;
+        }
+        notesTreeEl.appendChild(renderTreeNode(buildTree(notes)));
       }
 
       function renderRecent(items) {
         recentListEl.innerHTML = "";
         if (!items.length) {
-          recentListEl.innerHTML = "<li>No updates yet.</li>";
+          recentListEl.innerHTML = "<li><span class=\"recent-path\">No updates yet.</span></li>";
           return;
         }
-        items.forEach(function (item) {
+        items.slice(0, 2).forEach(function (item) {
           const li = document.createElement("li");
           li.innerHTML =
-            "<p class=\"item-title\"><a href=\"" + encodeURI(item.url) + "\">" + escapeHtml(item.title || item.path) + "</a></p>" +
-            "<p class=\"item-meta\">" + escapeHtml(item.path) + "</p>" +
-            "<p class=\"item-meta\">Updated: " + escapeHtml(formatDate(item.updated)) + "</p>";
+            "<div class=\"recent-main\">" +
+              "<a href=\"" + encodeURI(item.url) + "\">" + escapeHtml(item.title || item.path) + "</a>" +
+              "<div class=\"recent-path\">" + escapeHtml(item.path) + "</div>" +
+            "</div>" +
+            "<div class=\"recent-time\">" + escapeHtml(formatDate(item.updated)) + "</div>";
           recentListEl.appendChild(li);
         });
       }
