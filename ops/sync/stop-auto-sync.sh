@@ -3,7 +3,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEFAULT_REPO_PATH="$(cd "$SCRIPT_DIR/.." && pwd)"
+DEFAULT_REPO_PATH="$(cd "$SCRIPT_DIR/../.." && pwd)"
+AUTO_SYNC_SCRIPT="$SCRIPT_DIR/auto-sync.sh"
 
 REPO_PATH="$DEFAULT_REPO_PATH"
 PID_FILE=""
@@ -62,7 +63,7 @@ if [[ -f "$PID_FILE" ]]; then
 fi
 
 if [[ $stopped -eq 0 ]]; then
-  pid_list="$(ps -axo pid=,command= | grep -F "auto-sync.sh" | grep -F -- "$REPO_PATH" | grep -v grep | awk '{print $1}' || true)"
+  pid_list="$(ps -axo pid=,command= | grep -F -- "$AUTO_SYNC_SCRIPT" | grep -F -- "$REPO_PATH" | grep -v grep | awk '{print $1}' || true)"
   if [[ -n "$pid_list" ]]; then
     while IFS= read -r candidate; do
       if [[ "$candidate" =~ ^[0-9]+$ ]]; then

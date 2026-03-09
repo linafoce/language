@@ -6,7 +6,8 @@ param(
   [switch]$DeleteDraft
 )
 
-$scriptPath = Join-Path $PSScriptRoot "merge_draft.py"
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$scriptPath = Join-Path $repoRoot "tools\drafts\merge_draft.py"
 $args = @($scriptPath, $DraftFile, $TargetFile)
 if ($DeleteDraft) {
   $args += "--delete-draft"

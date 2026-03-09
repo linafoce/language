@@ -3,7 +3,7 @@ param(
     [string]$RepoPath = "",
     [int]$DebounceSeconds = 15,
     [int]$SyncIntervalSeconds = 120,
-    [string[]]$WatchFolders = @("inbox", "courses", "topics"),
+    [string[]]$WatchFolders = @("content", "drafts"),
     [string]$LogFile = "",
     [switch]$RunOnce
 )
@@ -16,7 +16,7 @@ if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction Sile
 
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 if ([string]::IsNullOrWhiteSpace($RepoPath)) {
-    $RepoPath = (Resolve-Path (Join-Path $scriptRoot "..")).Path
+    $RepoPath = (Resolve-Path (Join-Path $scriptRoot "..\..")).Path
 } else {
     $RepoPath = (Resolve-Path $RepoPath).Path
 }

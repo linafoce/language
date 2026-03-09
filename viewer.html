@@ -45,15 +45,27 @@
     (function () {
       const statusEl = document.getElementById("status");
       const params = new URLSearchParams(window.location.search);
-      const file = (params.get("file") || "").replace(/^\/+/, "");
+      const inputFile = (params.get("file") || "").replace(/^\/+/, "");
 
-      if (!file) {
-        statusEl.innerHTML = "Missing <code>file</code> parameter. Example: <code>viewer.html?file=courses%2FN2.md</code>";
+      function normalizeFilePath(file) {
+        if (/^content\/.+\.md$/i.test(file)) {
+          return file;
+        }
+        if (/^(courses|topics|inbox)\/.+\.md$/i.test(file)) {
+          return file.replace(/^[^/]+\//, "content/");
+        }
+        return "";
+      }
+
+      const file = normalizeFilePath(inputFile);
+
+      if (!inputFile) {
+        statusEl.innerHTML = "Missing <code>file</code> parameter. Example: <code>viewer.html?file=content%2FN2.md</code>";
         return;
       }
 
-      if (!/^(inbox|courses|topics)\/.+\.md$/i.test(file)) {
-        statusEl.innerHTML = "Invalid path: <code>" + file + "</code>. Only .md files under inbox/courses/topics are allowed.";
+      if (!file) {
+        statusEl.innerHTML = "Invalid path: <code>" + inputFile + "</code>. Only .md files under <code>content/</code> are allowed.";
         return;
       }
 

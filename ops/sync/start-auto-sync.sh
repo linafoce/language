@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEFAULT_REPO_PATH="$(cd "$SCRIPT_DIR/.." && pwd)"
+DEFAULT_REPO_PATH="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 REPO_PATH="$DEFAULT_REPO_PATH"
 DEBOUNCE_SECONDS=15

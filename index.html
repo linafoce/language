@@ -169,7 +169,7 @@
       <p>Static index and note pages are generated at build time.</p>
       <p id="status">Loading notes...</p>
       <p class="hint">
-        Compatibility: old links like <code>viewer.html?file=courses%2FN2.md</code> still work and will redirect.
+        Compatibility: old links like <code>viewer.html?file=courses%2FN2.md</code> still work and will redirect to <code>content/</code>.
       </p>
     </section>
 
@@ -244,10 +244,7 @@
         return /[\u3400-\u9FFF]/.test(text);
       }
 
-      function isVisibleNote(note) {
-        const path = String((note && note.path) || "");
-        return !/^inbox\/\d{4}-\d{2}-\d{2}-\d{6}-auto-sync-test(?:-\d+)?\.md$/i.test(path);
-      }
+      function isVisibleNote(note) { return true; }
 
       function loadJson(path) {
         return fetch(path + "?ts=" + Date.now(), { cache: "no-store" })

@@ -10,7 +10,7 @@ $ErrorActionPreference = "Stop"
 
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 if ([string]::IsNullOrWhiteSpace($RepoPath)) {
-    $RepoPath = (Resolve-Path (Join-Path $scriptRoot "..")).Path
+    $RepoPath = (Resolve-Path (Join-Path $scriptRoot "..\..")).Path
 } else {
     $RepoPath = (Resolve-Path $RepoPath).Path
 }

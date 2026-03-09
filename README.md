@@ -1,39 +1,54 @@
-# 日语笔记工作流（Git + 自动同步 + GitHub Pages）
+# 日语笔记仓库
 
-这个仓库用于替代受限笔记 App，实现：
+这个仓库现在只围绕两件事：
 
-- 你把 Gemini 生成的 Markdown 保存到本地目录
-- Windows/macOS 自动提交并推送到 GitHub
-- GitHub Pages 自动发布公开站点（含预渲染页面、搜索、最近更新）
+- 维护 `content/` 里的 Markdown 笔记
+- 自动同步到 GitHub，并生成 GitHub Pages 网站
 
-## 目录约定
+## 目录结构
 
-- `inbox/`：临时输入区（课堂即时落地）
-- `courses/`：主线累计笔记（支持多层目录）
-- `topics/`：专题笔记（支持多层目录）
-- `scripts/`：自动同步与构建脚本
+- `content/`：唯一主笔记目录
+- `drafts/`：草稿、试排版文件、历史备份
+- `tools/`：项目功能脚本
+- `ops/`：PowerShell / shell 命令入口
+- `notes/`：预渲染后的静态页面产物
 - `logs/`：本地同步日志
 
-## 同步流程
+## 自动同步
 
-自动同步脚本监听 `inbox/`、`courses/`、`topics/` 下的 `.md` 变化，触发：
+自动同步默认监听：
+
+- `content/`
+- `drafts/`
+
+触发流程：
 
 `git add -A` -> `git commit` -> `git pull --rebase` -> `git push`
 
-断网时本地提交会保留，下一次文件变化会自动重试推送。
-
 ### Windows
 
 启动：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File ".\scripts\start-auto-sync.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File ".\ops\sync\start-auto-sync.ps1"
 ```
 
 停止：
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File ".\scripts\stop-auto-sync.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File ".\ops\sync\stop-auto-sync.ps1"
+```
+
+开机自动启动：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File ".\ops\sync\install-login-task.ps1"
+```
+
+移除开机任务：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File ".\ops\sync\uninstall-login-task.ps1"
 ```
 
 ### macOS
@@ -41,106 +56,67 @@ powershell -NoProfile -ExecutionPolicy Bypass -File ".\scripts\stop-auto-sync.ps
 启动：
 
 ```bash
-bash ./scripts/start-auto-sync.sh
+bash ./ops/sync/start-auto-sync.sh
 ```
 
 停止：
 
 ```bash
-bash ./scripts/stop-auto-sync.sh
+bash ./ops/sync/stop-auto-sync.sh
 ```
 
-## GitHub Pages（预渲染）
+## 网站构建
 
-部署工作流：`.github/workflows/deploy-pages.yml`
-
-每次推送后会执行：
-
-1. 运行 `python scripts/build_site.py`
-2. 递归扫描 `inbox/courses/topics` 的 Markdown
-3. 生成：
-   - `notes/<...>.html`（每篇笔记的预渲染页面）
-   - `notes.json`（笔记索引）
-   - `search-index.json`（全文检索索引源）
-   - `recent.json`（最近更新 20 条）
-4. 再由 GitHub Pages 发布静态站点
-
-## 网站功能
-
-- 首页：`index.html`
-  - 全文搜索（lunr + CJK 包含匹配兜底）
-  - 最近更新列表
-  - 全部笔记列表
-- 阅读页：预渲染 HTML（`notes/...`）
-  - 目录模式切换：`H1` / `H1-H3`（`localStorage` 持久化）
-  - 桌面右侧目录 + 手机抽屉目录
-  - 目录高亮跟随并保持当前项可见
-- 兼容入口：`viewer.html?file=...`
-  - 自动重定向到对应预渲染页面（保留旧链接）
-
-## 截图草稿自动化（v1）
-
-目标：先生成草稿，再人工确认合并，避免直接污染主笔记。
-
-### 1) 生成草稿
+GitHub Pages 工作流会运行：
 
 ```bash
-python scripts/generate_draft_from_images.py <folder> --topic <topic>
+python tools/site/build_site.py
 ```
 
-输出：`inbox/drafts/<date>-<topic>.md`
+构建时会扫描 `content/`，并生成：
 
-也可用包装命令：
+- `notes/<...>.html`
+- `notes.json`
+- `search-index.json`
+- `recent.json`
 
-- PowerShell: `.\scripts\generate-draft-from-images.ps1 <folder> [-Topic <topic>]`
-- Bash: `bash ./scripts/generate-draft-from-images.sh <folder> [topic]`
+兼容入口仍然保留：
 
-### 2) 手动确认后合并
+- `viewer.html?file=content/N2.md`
+- 旧链接如 `viewer.html?file=courses/N2.md` 也会自动重定向
+
+## 截图草稿
+
+从截图生成草稿：
 
 ```bash
-python scripts/merge_draft.py <draft-file> <target-file>
+python tools/drafts/generate_draft_from_images.py <folder> --topic <topic>
 ```
 
-也可用包装命令：
+默认输出到：
 
-- PowerShell: `.\scripts\merge-draft.ps1 <draft-file> <target-file>`
-- Bash: `bash ./scripts/merge-draft.sh <draft-file> <target-file>`
+`drafts/`
 
-## Skill 维护
+命令入口：
 
-- 仓库内 `.claude/skill/` 是唯一可编辑真源
-- `~/.codex/skills/` 只作为本机安装目录，不手工修改
-- 编辑或新增 skill 后，先同步再使用
+- PowerShell: `.\ops\drafts\generate-draft-from-images.ps1 <folder> [-Topic <topic>]`
+- Bash: `bash ./ops/drafts/generate-draft-from-images.sh <folder> [topic]`
 
-### Windows
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File ".\scripts\sync-skills.ps1"
-```
-
-### macOS
+人工确认后合并草稿：
 
 ```bash
-bash ./scripts/sync-skills.sh
+python tools/drafts/merge_draft.py <draft-file> <target-file>
 ```
 
-同步脚本会：
+命令入口：
 
-- 扫描 `.claude/skill/*`
-- 只同步包含 `SKILL.md` 的合法 skill
-- 优先调用 `quick_validate.py` 做校验
-- 覆盖同名已安装 skill
-- 不删除 `.system` 或其他非仓库来源的 skill
+- PowerShell: `.\ops\drafts\merge-draft.ps1 <draft-file> <target-file>`
+- Bash: `bash ./ops/drafts/merge-draft.sh <draft-file> <target-file>`
 
-## 多设备协作建议
+建议把主笔记继续合并回 `content/`。
 
-- 多台电脑都克隆同一仓库
-- 编辑前先 `git pull --rebase`
-- 编辑后再 push
-- 同一文件多端同时改会出现冲突，按 Git 正常流程手动解决
+## 说明
 
-## 注意事项
-
-- 这是公开 Pages，任何人都可访问站点内容
-- 图片、附件建议使用相对路径并与 Markdown 一起纳入 Git
-- 本仓库不依赖 Obsidian 付费同步
+- 这个仓库的主内容只有 `content/`
+- `drafts/` 不会上站，只用于过渡和存档
+- skill 相关内容不是本仓库主流程的一部分

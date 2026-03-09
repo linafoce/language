@@ -15,13 +15,12 @@ from urllib.parse import quote
 import markdown
 
 
-ROOT = Path(__file__).resolve().parent.parent
-SOURCE_ROOTS = ("inbox", "courses", "topics")
+ROOT = Path(__file__).resolve().parents[2]
+SOURCE_ROOTS = ("content",)
 NOTES_OUT_DIR = ROOT / "notes"
 TOC_MODE_KEY = "tocMode"
 EXCLUDED_NOTE_PATTERNS = (
-    re.compile(r"^inbox/\d{4}-\d{2}-\d{2}-\d{6}-auto-sync-test(?:-\d+)?\.md$", re.IGNORECASE),
-    re.compile(r"^courses/.+\.backup-\d{8}-\d{6}\.md$", re.IGNORECASE),
+    re.compile(r"^content/.+\.backup-\d{8}-\d{6}\.md$", re.IGNORECASE),
 )
 
 LIST_MARKER_RE = re.compile(r"^(?:[*+-]\s+|\d+\.\s+)")
@@ -912,6 +911,22 @@ def sort_recent(notes: List[Note]) -> List[Note]:
 
 def write_outputs(notes: List[Note]) -> None:
     NOTES_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    expected_files = {
+        NOTES_OUT_DIR / Path(n.rel_path).with_suffix(".html")
+        for n in notes
+    }
+
+    for existing in NOTES_OUT_DIR.rglob("*.html"):
+        if existing not in expected_files:
+            existing.unlink(missing_ok=True)
+
+    for existing_dir in sorted(
+        [p for p in NOTES_OUT_DIR.rglob("*") if p.is_dir()],
+        key=lambda p: len(p.parts),
+        reverse=True,
+    ):
+        if not any(existing_dir.iterdir()):
+            existing_dir.rmdir()
 
     for note in notes:
         out_file = NOTES_OUT_DIR / Path(note.rel_path).with_suffix(".html")

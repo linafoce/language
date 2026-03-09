@@ -3,13 +3,13 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEFAULT_REPO_PATH="$(cd "$SCRIPT_DIR/.." && pwd)"
+DEFAULT_REPO_PATH="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 REPO_PATH="$DEFAULT_REPO_PATH"
 DEBOUNCE_SECONDS=15
 SYNC_INTERVAL_SECONDS=120
 POLL_SECONDS=2
-WATCH_FOLDERS=("inbox" "courses" "topics")
+WATCH_FOLDERS=("content" "drafts")
 LOG_FILE=""
 RUN_ONCE=0
 
@@ -25,7 +25,7 @@ Usage: auto-sync.sh [options]
   --debounce-seconds N      Debounce delay before sync (default: 15)
   --sync-interval-seconds N Periodic pull interval when idle (default: 120, 0=disable)
   --poll-seconds N          Poll interval for file change detection (default: 2)
-  --watch-folders LIST      Comma separated folders (default: inbox,courses,topics)
+  --watch-folders LIST      Comma separated folders (default: content,drafts)
   --log-file PATH           Log path (default: <repo>/logs/auto-sync.log)
   --run-once                Run one sync and exit
   --help                    Show help

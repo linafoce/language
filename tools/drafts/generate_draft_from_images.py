@@ -19,12 +19,12 @@ IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif"}
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate a markdown draft from screenshots into inbox/drafts."
+        description="Generate a markdown draft from screenshots into drafts."
     )
     parser.add_argument("folder", help="Folder containing screenshot images")
     parser.add_argument("--topic", help="Topic for output filename/title")
     parser.add_argument("--model", default=os.environ.get("OPENAI_MODEL", DEFAULT_MODEL))
-    parser.add_argument("--out-dir", default="inbox/drafts")
+    parser.add_argument("--out-dir", default="drafts")
     parser.add_argument("--max-images", type=int, default=8)
     return parser.parse_args()
 
