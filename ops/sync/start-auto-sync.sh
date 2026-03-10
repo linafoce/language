@@ -11,6 +11,7 @@ SYNC_INTERVAL_SECONDS=120
 POLL_SECONDS=2
 PID_FILE=""
 LOG_FILE=""
+STARTUP_WAIT_SECONDS=1
 
 usage() {
   cat <<'EOF'
@@ -105,6 +106,14 @@ nohup "$AUTO_SYNC_SCRIPT" \
 
 new_pid=$!
 printf '%s\n' "$new_pid" >"$PID_FILE"
+
+sleep "$STARTUP_WAIT_SECONDS"
+if ! kill -0 "$new_pid" 2>/dev/null; then
+  rm -f "$PID_FILE"
+  printf "Auto sync failed to stay running for %s\n" "$REPO_PATH" >&2
+  printf "Check log file: %s\n" "$LOG_FILE" >&2
+  exit 1
+fi
 
 printf "Auto sync started in background for %s (pid %s)\n" "$REPO_PATH" "$new_pid"
 printf "Log file: %s\n" "$LOG_FILE"

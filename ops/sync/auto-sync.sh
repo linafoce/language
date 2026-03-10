@@ -12,11 +12,15 @@ POLL_SECONDS=2
 WATCH_FOLDERS=("content" "drafts")
 LOG_FILE=""
 RUN_ONCE=0
+WATCHER_LOCK_DIR=""
+SYNC_LOCK_DIR=""
 
 IS_SYNCING=0
 STOPPED=0
 GIT_LAST_EXIT=0
 GIT_LAST_OUTPUT=""
+HELD_WATCHER_LOCK=0
+HELD_SYNC_LOCK=0
 
 usage() {
   cat <<'EOF'
@@ -34,6 +38,68 @@ EOF
 
 trim_line() {
   printf '%s' "$1" | tr -d '\r' | head -n 1
+}
+
+lock_pid_file() {
+  printf '%s/pid' "$1"
+}
+
+release_lock_dir() {
+  local lock_dir="$1"
+  local pid_file
+  pid_file="$(lock_pid_file "$lock_dir")"
+
+  if [[ -f "$pid_file" ]]; then
+    rm -f "$pid_file"
+  fi
+  rmdir "$lock_dir" 2>/dev/null || true
+}
+
+acquire_lock_dir() {
+  local lock_dir="$1"
+  local pid_file
+  local existing_pid=""
+
+  pid_file="$(lock_pid_file "$lock_dir")"
+
+  if mkdir "$lock_dir" 2>/dev/null; then
+    printf '%s\n' "$$" >"$pid_file"
+    return 0
+  fi
+
+  if [[ -f "$pid_file" ]]; then
+    existing_pid="$(cat "$pid_file" 2>/dev/null || true)"
+  fi
+
+  if [[ "$existing_pid" =~ ^[0-9]+$ ]] && kill -0 "$existing_pid" 2>/dev/null; then
+    return 1
+  fi
+
+  release_lock_dir "$lock_dir"
+
+  if mkdir "$lock_dir" 2>/dev/null; then
+    printf '%s\n' "$$" >"$pid_file"
+    return 0
+  fi
+
+  return 1
+}
+
+acquire_sync_lock() {
+  if acquire_lock_dir "$SYNC_LOCK_DIR"; then
+    HELD_SYNC_LOCK=1
+    return 0
+  fi
+
+  write_log "WARN" "Another sync operation is already running; skipping this trigger."
+  return 1
+}
+
+release_sync_lock() {
+  if [[ $HELD_SYNC_LOCK -eq 1 ]]; then
+    release_lock_dir "$SYNC_LOCK_DIR"
+    HELD_SYNC_LOCK=0
+  fi
 }
 
 is_integer() {
@@ -118,6 +184,16 @@ has_upstream() {
   [[ $GIT_LAST_EXIT -eq 0 ]]
 }
 
+get_upstream_ref() {
+  run_git allow_fail rev-parse --abbrev-ref --symbolic-full-name '@{u}'
+  if [[ $GIT_LAST_EXIT -eq 0 ]]; then
+    printf '%s' "$(trim_line "$GIT_LAST_OUTPUT")"
+    return 0
+  fi
+
+  return 1
+}
+
 get_ahead_count() {
   if ! has_upstream; then
     printf '0'
@@ -144,6 +220,49 @@ is_working_tree_clean() {
   [[ $GIT_LAST_EXIT -eq 0 && -z "$GIT_LAST_OUTPUT" ]]
 }
 
+is_up_to_date_output() {
+  local output="$1"
+  [[ "$output" =~ [Aa]lready[[:space:]-]+up[[:space:]-]+to[[:space:]-]+date ]] \
+    || [[ "$output" =~ up[[:space:]]to[[:space:]]date ]] \
+    || [[ "$output" =~ [Cc]urrent[[:space:]]branch.+is[[:space:]]up[[:space:]]to[[:space:]]date ]]
+}
+
+fetch_and_rebase_upstream() {
+  local upstream_ref=""
+  local remote_name=""
+  local remote_branch=""
+  local fetch_output=""
+  local rebase_output=""
+
+  if ! upstream_ref="$(get_upstream_ref)"; then
+    GIT_LAST_EXIT=1
+    GIT_LAST_OUTPUT="Upstream branch not found."
+    return 1
+  fi
+
+  remote_name="${upstream_ref%%/*}"
+  remote_branch="${upstream_ref#*/}"
+
+  run_git allow_fail fetch "$remote_name" "$remote_branch"
+  if [[ $GIT_LAST_EXIT -ne 0 ]]; then
+    return 1
+  fi
+  fetch_output="$GIT_LAST_OUTPUT"
+
+  run_git allow_fail rebase "$upstream_ref"
+  rebase_output="$GIT_LAST_OUTPUT"
+
+  if [[ -n "$fetch_output" && -n "$rebase_output" ]]; then
+    GIT_LAST_OUTPUT="$fetch_output"$'\n'"$rebase_output"
+  elif [[ -n "$rebase_output" ]]; then
+    GIT_LAST_OUTPUT="$rebase_output"
+  else
+    GIT_LAST_OUTPUT="$fetch_output"
+  fi
+
+  return $GIT_LAST_EXIT
+}
+
 invoke_pull_only() {
   if [[ $IS_SYNCING -eq 1 ]]; then
     return 0
@@ -151,38 +270,49 @@ invoke_pull_only() {
 
   IS_SYNCING=1
 
+  if ! acquire_sync_lock; then
+    IS_SYNCING=0
+    return 0
+  fi
+
   if ! test_git_repository; then
+    release_sync_lock
     IS_SYNCING=0
     return 1
   fi
 
   if ! get_current_branch >/dev/null 2>&1; then
+    release_sync_lock
     IS_SYNCING=0
     return 1
   fi
 
   if ! has_origin || ! has_upstream; then
+    release_sync_lock
     IS_SYNCING=0
     return 0
   fi
 
   if ! is_working_tree_clean; then
     write_log "INFO" "Periodic pull skipped because local workspace has uncommitted changes."
+    release_sync_lock
     IS_SYNCING=0
     return 0
   fi
 
-  run_git allow_fail pull --rebase
+  fetch_and_rebase_upstream
   if [[ $GIT_LAST_EXIT -ne 0 ]]; then
-    write_log "ERROR" "Periodic pull --rebase failed. $GIT_LAST_OUTPUT"
+    write_log "ERROR" "Periodic fetch/rebase failed. $GIT_LAST_OUTPUT"
+    release_sync_lock
     IS_SYNCING=0
     return 1
   fi
 
-  if [[ -n "$GIT_LAST_OUTPUT" ]] && [[ ! "$GIT_LAST_OUTPUT" =~ [Aa]lready[[:space:]-]+up[[:space:]-]+to[[:space:]-]+date ]] && [[ ! "$GIT_LAST_OUTPUT" =~ up[[:space:]]to[[:space:]]date ]]; then
-    write_log "INFO" "Periodic pull applied updates."
+  if [[ -n "$GIT_LAST_OUTPUT" ]] && ! is_up_to_date_output "$GIT_LAST_OUTPUT"; then
+    write_log "INFO" "Periodic fetch/rebase applied updates."
   fi
 
+  release_sync_lock
   IS_SYNCING=0
   return 0
 }
@@ -198,24 +328,33 @@ invoke_sync() {
   local has_upstream_flag=0
   local ahead=0
 
+  if ! acquire_sync_lock; then
+    IS_SYNCING=0
+    return 0
+  fi
+
   if ! test_git_repository; then
+    release_sync_lock
     IS_SYNCING=0
     return 1
   fi
 
   if ! branch="$(get_current_branch)"; then
     write_log "ERROR" "Branch not found. Sync stopped."
+    release_sync_lock
     IS_SYNCING=0
     return 1
   fi
 
   if [[ -z "$branch" ]]; then
     write_log "ERROR" "Branch not found. Sync stopped."
+    release_sync_lock
     IS_SYNCING=0
     return 1
   fi
 
   if ! run_git strict add -A; then
+    release_sync_lock
     IS_SYNCING=0
     return 1
   fi
@@ -227,6 +366,7 @@ invoke_sync() {
     run_git allow_fail commit -m "notes: auto-sync $stamp"
     if [[ $GIT_LAST_EXIT -ne 0 ]]; then
       write_log "ERROR" "Commit failed. $GIT_LAST_OUTPUT"
+      release_sync_lock
       IS_SYNCING=0
       return 1
     fi
@@ -237,19 +377,21 @@ invoke_sync() {
 
   if ! has_origin; then
     write_log "WARN" "Remote 'origin' not configured. Skipping pull/push."
+    release_sync_lock
     IS_SYNCING=0
     return 0
   fi
 
   if has_upstream; then
     has_upstream_flag=1
-    run_git allow_fail pull --rebase
+    fetch_and_rebase_upstream
     if [[ $GIT_LAST_EXIT -ne 0 ]]; then
-      write_log "ERROR" "git pull --rebase failed. Resolve conflicts manually, then continue. $GIT_LAST_OUTPUT"
+      write_log "ERROR" "git fetch/rebase failed. Resolve conflicts manually, then continue. $GIT_LAST_OUTPUT"
+      release_sync_lock
       IS_SYNCING=0
       return 1
     fi
-    write_log "INFO" "Pull --rebase succeeded."
+    write_log "INFO" "Fetch/rebase succeeded."
   else
     write_log "WARN" "Upstream missing for '$branch'. First push will set upstream."
   fi
@@ -268,6 +410,7 @@ invoke_sync() {
 
     if [[ $GIT_LAST_EXIT -ne 0 ]]; then
       write_log "ERROR" "Push failed. Local commits are kept and will retry on next change. $GIT_LAST_OUTPUT"
+      release_sync_lock
       IS_SYNCING=0
       return 1
     fi
@@ -276,6 +419,7 @@ invoke_sync() {
     write_log "INFO" "No commits to push."
   fi
 
+  release_sync_lock
   IS_SYNCING=0
   return 0
 }
@@ -303,7 +447,12 @@ cleanup() {
     return 0
   fi
   STOPPED=1
+  release_sync_lock
   write_log "INFO" "Shutting down auto sync watcher."
+  if [[ $HELD_WATCHER_LOCK -eq 1 ]]; then
+    release_lock_dir "$WATCHER_LOCK_DIR"
+    HELD_WATCHER_LOCK=0
+  fi
 }
 
 while [[ $# -gt 0 ]]; do
@@ -373,10 +522,19 @@ if [[ -z "$LOG_FILE" ]]; then
   LOG_FILE="$REPO_PATH/logs/auto-sync.log"
 fi
 
+WATCHER_LOCK_DIR="$REPO_PATH/logs/auto-sync.lock"
+SYNC_LOCK_DIR="$REPO_PATH/logs/auto-sync.sync.lock"
+
 if [[ $RUN_ONCE -eq 1 ]]; then
   invoke_sync
   exit 0
 fi
+
+if ! acquire_lock_dir "$WATCHER_LOCK_DIR"; then
+  write_log "WARN" "Another auto sync watcher is already running for '$REPO_PATH'. Exiting."
+  exit 0
+fi
+HELD_WATCHER_LOCK=1
 
 trap cleanup INT TERM EXIT
 
