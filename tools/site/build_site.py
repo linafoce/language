@@ -179,6 +179,30 @@ NOTE_TEMPLATE = r"""<!doctype html>
       color: #1f2328;
     }
     #content h1, #content h2, #content h3 { scroll-margin-top: 18px; }
+    #content table {
+      display: block;
+      width: max-content;
+      max-width: 100%;
+      overflow-x: auto;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    #content th,
+    #content td {
+      min-width: 180px;
+      vertical-align: top;
+      line-height: 1.65;
+    }
+    #content table code {
+      background: rgba(175, 184, 193, 0.12);
+      border: 0;
+      color: #0550ae;
+      font-size: 0.92em;
+      padding: 0.12em 0.36em;
+    }
+    #content table strong {
+      color: #0f172a;
+    }
 
     .desktop-toc {
       min-height: 0;
