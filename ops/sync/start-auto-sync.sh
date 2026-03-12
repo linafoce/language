@@ -96,7 +96,7 @@ if [[ -f "$PID_FILE" ]]; then
   rm -f "$PID_FILE"
 fi
 
-nohup "$AUTO_SYNC_SCRIPT" \
+nohup bash "$AUTO_SYNC_SCRIPT" \
   --repo-path "$REPO_PATH" \
   --debounce-seconds "$DEBOUNCE_SECONDS" \
   --sync-interval-seconds "$SYNC_INTERVAL_SECONDS" \
