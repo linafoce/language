@@ -379,7 +379,7 @@
           li.innerHTML =
             "<div class=\"tree-file\">" +
               "<div class=\"tree-file-main\">" +
-                "<div class=\"tree-file-title\"><a href=\"" + encodeURI(note.url) + "\">" + escapeHtml(note.title || note.path) + "</a></div>" +
+                "<div class=\"tree-file-title\"><a href=\"" + escapeHtml(note.url) + "\">" + escapeHtml(note.title || note.path) + "</a></div>" +
                 "<div class=\"tree-file-path\">" + escapeHtml(note.path) + "</div>" +
               "</div>" +
               "<div class=\"tree-file-time\">" + escapeHtml(formatDate(note.updated)) + "</div>" +
@@ -409,7 +409,7 @@
           const li = document.createElement("li");
           li.innerHTML =
             "<div class=\"recent-main\">" +
-              "<a href=\"" + encodeURI(item.url) + "\">" + escapeHtml(item.title || item.path) + "</a>" +
+              "<a href=\"" + escapeHtml(item.url) + "\">" + escapeHtml(item.title || item.path) + "</a>" +
               "<div class=\"recent-path\">" + escapeHtml(item.path) + "</div>" +
             "</div>" +
             "<div class=\"recent-time\">" + escapeHtml(formatDate(item.updated)) + "</div>";
@@ -433,7 +433,7 @@
         items.forEach(function (item) {
           const li = document.createElement("li");
           li.innerHTML =
-            "<p class=\"item-title\"><a href=\"" + encodeURI(item.url) + "\">" + escapeHtml(item.title || item.path) + "</a></p>" +
+            "<p class=\"item-title\"><a href=\"" + escapeHtml(item.url) + "\">" + escapeHtml(item.title || item.path) + "</a></p>" +
             "<p class=\"item-meta\">" + escapeHtml(item.path) + "</p>" +
             "<p class=\"item-meta\">Updated: " + escapeHtml(formatDate(item.updated)) + "</p>";
           searchResultsEl.appendChild(li);
