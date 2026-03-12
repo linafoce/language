@@ -220,6 +220,28 @@ is_working_tree_clean() {
   [[ $GIT_LAST_EXIT -eq 0 && -z "$GIT_LAST_OUTPUT" ]]
 }
 
+is_lock_error_output() {
+  local output="$1"
+  [[ "$output" == *".lock"* ]] \
+    || [[ "$output" == *"Unable to create"* ]] \
+    || [[ "$output" == *"另一个 git 进程"* ]] \
+    || [[ "$output" == *"another git process"* ]]
+}
+
+is_git_busy() {
+  local git_dir="$REPO_PATH/.git"
+
+  [[ -e "$git_dir/index.lock" ]] \
+    || [[ -e "$git_dir/FETCH_HEAD.lock" ]] \
+    || [[ -e "$git_dir/shallow.lock" ]] \
+    || [[ -e "$git_dir/packed-refs.lock" ]] \
+    || [[ -d "$git_dir/rebase-merge" ]] \
+    || [[ -d "$git_dir/rebase-apply" ]] \
+    || [[ -e "$git_dir/MERGE_HEAD" ]] \
+    || [[ -e "$git_dir/CHERRY_PICK_HEAD" ]] \
+    || [[ -e "$git_dir/REVERT_HEAD" ]]
+}
+
 is_up_to_date_output() {
   local output="$1"
   [[ "$output" =~ [Aa]lready[[:space:]-]+up[[:space:]-]+to[[:space:]-]+date ]] \
@@ -293,6 +315,13 @@ invoke_pull_only() {
     return 0
   fi
 
+  if is_git_busy; then
+    write_log "INFO" "Periodic sync skipped because Git is busy or another Git operation is in progress."
+    release_sync_lock
+    IS_SYNCING=0
+    return 0
+  fi
+
   if ! is_working_tree_clean; then
     write_log "INFO" "Periodic pull skipped because local workspace has uncommitted changes."
     release_sync_lock
@@ -302,6 +331,12 @@ invoke_pull_only() {
 
   fetch_and_rebase_upstream
   if [[ $GIT_LAST_EXIT -ne 0 ]]; then
+    if is_lock_error_output "$GIT_LAST_OUTPUT"; then
+      write_log "INFO" "Periodic sync skipped because Git is busy: $GIT_LAST_OUTPUT"
+      release_sync_lock
+      IS_SYNCING=0
+      return 0
+    fi
     write_log "ERROR" "Periodic fetch/rebase failed. $GIT_LAST_OUTPUT"
     release_sync_lock
     IS_SYNCING=0
@@ -353,7 +388,20 @@ invoke_sync() {
     return 1
   fi
 
+  if is_git_busy; then
+    write_log "INFO" "Sync skipped because Git is busy or another Git operation is in progress."
+    release_sync_lock
+    IS_SYNCING=0
+    return 0
+  fi
+
   if ! run_git strict add -A; then
+    if is_lock_error_output "$GIT_LAST_OUTPUT"; then
+      write_log "INFO" "Sync skipped because Git is busy: $GIT_LAST_OUTPUT"
+      release_sync_lock
+      IS_SYNCING=0
+      return 0
+    fi
     release_sync_lock
     IS_SYNCING=0
     return 1
@@ -365,6 +413,12 @@ invoke_sync() {
     stamp="$(date '+%Y-%m-%d %H:%M:%S %z')"
     run_git allow_fail commit -m "notes: auto-sync $stamp"
     if [[ $GIT_LAST_EXIT -ne 0 ]]; then
+      if is_lock_error_output "$GIT_LAST_OUTPUT"; then
+        write_log "INFO" "Sync skipped because Git is busy: $GIT_LAST_OUTPUT"
+        release_sync_lock
+        IS_SYNCING=0
+        return 0
+      fi
       write_log "ERROR" "Commit failed. $GIT_LAST_OUTPUT"
       release_sync_lock
       IS_SYNCING=0
@@ -386,6 +440,12 @@ invoke_sync() {
     has_upstream_flag=1
     fetch_and_rebase_upstream
     if [[ $GIT_LAST_EXIT -ne 0 ]]; then
+      if is_lock_error_output "$GIT_LAST_OUTPUT"; then
+        write_log "INFO" "Sync skipped because Git is busy: $GIT_LAST_OUTPUT"
+        release_sync_lock
+        IS_SYNCING=0
+        return 0
+      fi
       write_log "ERROR" "git fetch/rebase failed. Resolve conflicts manually, then continue. $GIT_LAST_OUTPUT"
       release_sync_lock
       IS_SYNCING=0
@@ -409,6 +469,12 @@ invoke_sync() {
     fi
 
     if [[ $GIT_LAST_EXIT -ne 0 ]]; then
+      if is_lock_error_output "$GIT_LAST_OUTPUT"; then
+        write_log "INFO" "Sync skipped because Git is busy: $GIT_LAST_OUTPUT"
+        release_sync_lock
+        IS_SYNCING=0
+        return 0
+      fi
       write_log "ERROR" "Push failed. Local commits are kept and will retry on next change. $GIT_LAST_OUTPUT"
       release_sync_lock
       IS_SYNCING=0
