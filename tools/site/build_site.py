@@ -186,12 +186,30 @@ NOTE_TEMPLATE = r"""<!doctype html>
       overflow-x: auto;
       border-collapse: separate;
       border-spacing: 0;
+      background: #ffffff !important;
+      color: #1f2328 !important;
+    }
+    #content thead,
+    #content tbody,
+    #content tr {
+      background: transparent !important;
+      color: #1f2328 !important;
     }
     #content th,
     #content td {
       min-width: 180px;
       vertical-align: top;
       line-height: 1.65;
+      background: #ffffff !important;
+      color: #1f2328 !important;
+      border-color: #d0d7de !important;
+    }
+    #content thead th {
+      background: #f6f8fa !important;
+      color: #0f172a !important;
+    }
+    #content tbody tr:nth-child(2n) td {
+      background: #fbfdff !important;
     }
     #content table code {
       background: rgba(175, 184, 193, 0.12);
@@ -199,6 +217,11 @@ NOTE_TEMPLATE = r"""<!doctype html>
       color: #0550ae;
       font-size: 0.92em;
       padding: 0.12em 0.36em;
+    }
+    #content table code,
+    #content table strong,
+    #content table em {
+      color: inherit !important;
     }
     #content table strong {
       color: #0f172a;
