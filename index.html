@@ -165,6 +165,24 @@
       padding: 0;
       list-style: none;
     }
+    .tree-toolbar {
+      display: flex;
+      gap: 8px;
+      margin: 0 0 12px;
+      flex-wrap: wrap;
+    }
+    .tree-toolbar button {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--text);
+      padding: 6px 12px;
+      font: inherit;
+      cursor: pointer;
+    }
+    .tree-toolbar button:hover {
+      background: #f6f8fa;
+    }
     .tree ul {
       list-style: none;
       margin: 6px 0 0 18px;
@@ -181,15 +199,36 @@
       gap: 10px;
       padding: 6px 0;
     }
+    .tree-folder {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      padding: 6px 0;
+      cursor: pointer;
+      text-align: left;
+      font: inherit;
+    }
+    .tree-folder:hover .tree-folder-name {
+      color: var(--link);
+    }
+    .tree-folder-toggle {
+      flex: 0 0 auto;
+      color: #57606a;
+      font-size: 12px;
+      line-height: 1.6;
+      transition: transform 0.16s ease;
+    }
+    .tree-folder[aria-expanded="true"] .tree-folder-toggle {
+      transform: rotate(90deg);
+    }
     .tree-folder-name {
       font-weight: 600;
       color: #24292f;
+      min-width: 0;
+      word-break: break-word;
     }
-    .tree-folder-name::before {
-      content: "▸";
-      display: inline-block;
-      margin-right: 6px;
-      color: #57606a;
+    .tree-children[hidden] {
+      display: none;
     }
     .tree-file::before {
       content: "•";
@@ -283,6 +322,10 @@
 
     <section class="card">
       <h2>All Notes</h2>
+      <div class="tree-toolbar">
+        <button id="expand-all-btn" type="button">Expand all</button>
+        <button id="collapse-all-btn" type="button">Collapse all</button>
+      </div>
       <div id="notes-tree"></div>
     </section>
   </div>
@@ -297,11 +340,19 @@
       const searchBtnEl = document.getElementById("search-btn");
       const searchCountEl = document.getElementById("search-count");
       const searchResultsEl = document.getElementById("search-results");
+      const expandAllBtnEl = document.getElementById("expand-all-btn");
+      const collapseAllBtnEl = document.getElementById("collapse-all-btn");
+      const folderStateStorageKey = "notesTreeExpandedFolders";
+      const recentFoldersStorageKey = "notesTreeRecentFolders";
+      const recentFolderLimit = 16;
 
       let notes = [];
       let searchDocs = [];
       let searchIndex = null;
       let searchIndexPromise = null;
+      let allFolderPaths = [];
+      let folderState = loadFolderState();
+      let recentFolders = loadRecentFolders();
 
       function formatDate(isoText) {
         if (!isoText) {
@@ -339,6 +390,135 @@
           });
       }
 
+      function loadFolderState() {
+        try {
+          const raw = window.localStorage.getItem(folderStateStorageKey);
+          if (!raw) {
+            return {};
+          }
+          const parsed = JSON.parse(raw);
+          return parsed && typeof parsed === "object" ? parsed : {};
+        } catch (err) {
+          return {};
+        }
+      }
+
+      function saveFolderState() {
+        try {
+          window.localStorage.setItem(folderStateStorageKey, JSON.stringify(folderState));
+        } catch (err) {}
+      }
+
+      function loadRecentFolders() {
+        try {
+          const raw = window.localStorage.getItem(recentFoldersStorageKey);
+          if (!raw) {
+            return [];
+          }
+          const parsed = JSON.parse(raw);
+          if (!Array.isArray(parsed)) {
+            return [];
+          }
+          return parsed.filter(function (item) {
+            return typeof item === "string" && item;
+          });
+        } catch (err) {
+          return [];
+        }
+      }
+
+      function saveRecentFolders() {
+        try {
+          window.localStorage.setItem(recentFoldersStorageKey, JSON.stringify(recentFolders.slice(0, recentFolderLimit)));
+        } catch (err) {}
+      }
+
+      function getFolderAncestors(notePath) {
+        const parts = String(notePath || "").split("/").filter(Boolean);
+        const folders = [];
+        if (parts.length <= 1) {
+          return folders;
+        }
+        for (let i = 0; i < parts.length - 1; i += 1) {
+          folders.push(parts.slice(0, i + 1).join("/"));
+        }
+        return folders;
+      }
+
+      function rememberVisitedNote(notePath) {
+        const folders = getFolderAncestors(notePath).reverse();
+        if (!folders.length) {
+          return;
+        }
+
+        folders.forEach(function (folderPath) {
+          recentFolders = recentFolders.filter(function (item) {
+            return item !== folderPath;
+          });
+          recentFolders.unshift(folderPath);
+        });
+        recentFolders = recentFolders.slice(0, recentFolderLimit);
+        saveRecentFolders();
+      }
+
+      function collectFolderPaths(node, parentPath) {
+        const paths = [];
+        Array.from(node.folders.keys()).forEach(function (folderName) {
+          const folderPath = parentPath ? parentPath + "/" + folderName : folderName;
+          paths.push(folderPath);
+          paths.push.apply(paths, collectFolderPaths(node.folders.get(folderName), folderPath));
+        });
+        return paths;
+      }
+
+      function pruneFolderState() {
+        const validSet = new Set(allFolderPaths);
+        const nextState = {};
+        Object.keys(folderState).forEach(function (folderPath) {
+          if (validSet.has(folderPath)) {
+            nextState[folderPath] = folderState[folderPath];
+          }
+        });
+        folderState = nextState;
+        saveFolderState();
+
+        recentFolders = recentFolders.filter(function (folderPath) {
+          return validSet.has(folderPath);
+        }).slice(0, recentFolderLimit);
+        saveRecentFolders();
+      }
+
+      function setAllFoldersExpanded(expanded) {
+        const nextState = {};
+        allFolderPaths.forEach(function (folderPath) {
+          nextState[folderPath] = expanded;
+        });
+        folderState = nextState;
+        saveFolderState();
+        renderAllNotes();
+      }
+
+      function attachNoteTracking(linkEl, notePath) {
+        if (!linkEl) {
+          return;
+        }
+        linkEl.addEventListener("click", function () {
+          rememberVisitedNote(notePath);
+        });
+      }
+
+      function isFolderExpanded(folderPath) {
+        if (Object.prototype.hasOwnProperty.call(folderState, folderPath)) {
+          return Boolean(folderState[folderPath]);
+        }
+        return recentFolders.includes(folderPath);
+      }
+
+      function setFolderExpanded(folderPath, expanded) {
+        folderState[folderPath] = expanded;
+        saveFolderState();
+      }
+
       function buildTree(items) {
         const root = { folders: new Map(), files: [] };
 
@@ -358,7 +538,7 @@
         return root;
       }
 
-      function renderTreeNode(node) {
+      function renderTreeNode(node, parentPath) {
         const ul = document.createElement("ul");
         ul.className = "tree";
 
@@ -367,8 +547,29 @@
         }).forEach(function (folderName) {
           const childNode = node.folders.get(folderName);
           const li = document.createElement("li");
-          li.innerHTML = "<div class=\"tree-folder\"><span class=\"tree-folder-name\">" + escapeHtml(folderName) + "</span></div>";
-          li.appendChild(renderTreeNode(childNode));
+          const folderPath = parentPath ? parentPath + "/" + folderName : folderName;
+          const isExpanded = isFolderExpanded(folderPath);
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "tree-folder";
+          button.setAttribute("aria-expanded", isExpanded ? "true" : "false");
+          button.innerHTML =
+            "<span class=\"tree-folder-toggle\">▸</span>" +
+            "<span class=\"tree-folder-name\">" + escapeHtml(folderName) + "</span>";
+
+          const childTree = renderTreeNode(childNode, folderPath);
+          childTree.classList.add("tree-children");
+          childTree.hidden = !isExpanded;
+
+          button.addEventListener("click", function () {
+            const nextExpanded = button.getAttribute("aria-expanded") !== "true";
+            button.setAttribute("aria-expanded", nextExpanded ? "true" : "false");
+            childTree.hidden = !nextExpanded;
+            setFolderExpanded(folderPath, nextExpanded);
+          });
+
+          li.appendChild(button);
+          li.appendChild(childTree);
           ul.appendChild(li);
         });
 
@@ -384,6 +585,7 @@
               "</div>" +
               "<div class=\"tree-file-time\">" + escapeHtml(formatDate(note.updated)) + "</div>" +
             "</div>";
+          attachNoteTracking(li.querySelector("a"), note.path);
           ul.appendChild(li);
         });
 
@@ -396,7 +598,10 @@
           notesTreeEl.innerHTML = "<p>No notes yet.</p>";
           return;
         }
-        notesTreeEl.appendChild(renderTreeNode(buildTree(notes)));
+        const treeRoot = buildTree(notes);
+        allFolderPaths = collectFolderPaths(treeRoot, "");
+        pruneFolderState();
+        notesTreeEl.appendChild(renderTreeNode(treeRoot, ""));
       }
 
       function renderRecent(items) {
@@ -413,6 +618,7 @@
               "<div class=\"recent-path\">" + escapeHtml(item.path) + "</div>" +
             "</div>" +
             "<div class=\"recent-time\">" + escapeHtml(formatDate(item.updated)) + "</div>";
+          attachNoteTracking(li.querySelector("a"), item.path);
           recentListEl.appendChild(li);
         });
       }
@@ -436,6 +642,7 @@
             "<p class=\"item-title\"><a href=\"" + escapeHtml(item.url) + "\">" + escapeHtml(item.title || item.path) + "</a></p>" +
             "<p class=\"item-meta\">" + escapeHtml(item.path) + "</p>" +
             "<p class=\"item-meta\">Updated: " + escapeHtml(formatDate(item.updated)) + "</p>";
+          attachNoteTracking(li.querySelector("a"), item.path);
           searchResultsEl.appendChild(li);
         });
       }
@@ -557,6 +764,12 @@
           searchCountEl.textContent = "Input keyword to search all notes.";
           searchResultsEl.innerHTML = "";
         }
+      });
+      expandAllBtnEl.addEventListener("click", function () {
+        setAllFoldersExpanded(true);
+      });
+      collapseAllBtnEl.addEventListener("click", function () {
+        setAllFoldersExpanded(false);
       });
     })();
   </script>
