@@ -55,6 +55,7 @@ Use this structure unless the user explicitly requests a different format:
 ## File Normalization Rules
 
 - For full note files, treat each top-level grammar item as a top-level section.
+- If the same source batch covers variants from the same grammar family, near-synonymous expressions, or conjugation-based expansions, merge them into one top-level section by default unless the user explicitly asks for separate entries.
 - Keep internal explanatory blocks under consistent subheadings such as `## 核心语法`, `## 用法重点`, and `## 例句模式`.
 - Merge duplicate empty headings.
 - Fix heading depth only when the source is clearly inconsistent.
