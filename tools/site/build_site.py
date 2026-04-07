@@ -518,6 +518,13 @@ __CONTENT__
         const filtered = all.filter(function (node) {
           return !isDocumentTitleHeading(node, all);
         });
+        const h1Entries = filtered.filter(function (node) {
+          return node.tagName === "H1" && looksLikeTopLevelEntry(node.textContent || "");
+        });
+        if (h1Entries.length >= 3) {
+          return h1Entries;
+        }
+
         const topLevel = [];
         let lastNumber = null;
 
