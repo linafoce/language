@@ -1,9 +1,9 @@
 ---
-name: note-format
-description: Normalize Japanese grammar or vocabulary notes into a clean Markdown output with selective furigana, fixed section structure, and copy-ready formatting. Use when the user asks to整理日语语法笔记, 规范现有 Markdown, 从截图或文本生成统一笔记格式, or clean inconsistent note files such as `N2.md` or `N3.md`.
+name: japanese-note-format
+description: Normalize Japanese grammar or vocabulary notes into a clean Markdown output with selective furigana, fixed section structure, and copy-ready formatting. Use when the user asks to整理日语语法笔记, 规范现有 Markdown, 从截图或文本生成统一笔记格式, or clean inconsistent Japanese note files such as `N2.md`, `N3.md`, or topic notes inside this notebook repo.
 ---
 
-# Note Format
+# Japanese Note Format
 
 Format only the material the user provides in the current turn. Do not expand scope on your own.
 
@@ -20,7 +20,10 @@ Format only the material the user provides in the current turn. Do not expand sc
 - Never use the literal character sequence `->` in output.
 - Do not add romaji.
 - Add hiragana furigana to Japanese kanji when it improves readability, using full-width parentheses after the word.
-- Do not add furigana to very basic N5/N4-level words such as `私`, `彼女`, `仕事`, `学校`, `先生`, unless the user explicitly asks for full annotation.
+- Default to sparse furigana, not full annotation.
+- As a default rule for Japanese study notes, add furigana to words that are roughly N3-N2 level when their reading is not obvious or when the learner may plausibly not know the reading yet.
+- Do not add furigana to very basic N5/N4-level words such as `私`, `彼女`, `仕事`, `学校`, `先生`, `今日`, `明日`, `時間`, `食べる`, `行く`, `見る`, unless the user explicitly asks for fuller annotation.
+- In example sentences, prefer adding furigana only to non-obvious, easy-to-misread, less common, or grammar-relevant words. Keep sentence noise low.
 - If generating a vocabulary list, write all readings in hiragana.
 - Do not invent meanings, examples, or grammar restrictions that are not supported by the source material or obvious context.
 
@@ -59,7 +62,8 @@ Use this structure unless the user explicitly requests a different format:
 - Keep internal explanatory blocks under consistent subheadings such as `## 核心语法`, `## 用法重点`, and `## 例句模式`.
 - Merge duplicate empty headings.
 - Fix heading depth only when the source is clearly inconsistent.
-- Prefer the cleaner structure used in `courses/N2.md` as the normalization target when working inside this notebook repository.
+- Prefer the cleaner structure used in `content/N2.md` as the normalization target when working inside this notebook repository.
+- Treat `content/N2.md` as a reference style, not as a file to aggressively re-annotate. Preserve already clean low-noise example sentences.
 
 ## Safety
 
