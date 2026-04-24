@@ -1,0 +1,4 @@
+interface:
+  display_name: "Japanese Screenshot Draft"
+  short_description: "Create markdown drafts from lesson screenshots."
+  default_prompt: "Use $japanese-screenshot-draft to turn a screenshot folder into a draft markdown note in inbox/drafts."
