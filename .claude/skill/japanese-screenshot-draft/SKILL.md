@@ -9,7 +9,7 @@ Generate a markdown draft from screenshots first. Never write directly into main
 
 ## Routing Note
 
-If the screenshot is a Japanese reading passage and the active notebook repository contains `content/word/阅读问题整理.md`, prefer the `$japanese-reading-issue-log` workflow and append a compact reading entry there. Use this screenshot draft workflow for class-note drafts, screenshot folders, or cases where the user has not indicated an existing target note.
+If the screenshot is a Japanese reading passage and the active notebook repository contains `content/word/阅读问题整理.md`, prefer the `$japanese-reading-archive` workflow and append a compact reading entry there. Use this screenshot draft workflow for class-note drafts, screenshot folders, or cases where the user has not indicated an existing target note.
 
 ## Inputs
 

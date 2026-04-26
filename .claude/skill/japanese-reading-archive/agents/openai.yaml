@@ -1,0 +1,4 @@
+interface:
+  display_name: "Japanese Reading Archive"
+  short_description: "Archive Japanese reading items to the shared review file."
+  default_prompt: "Use $japanese-reading-archive to add this Japanese reading passage to content/word/阅读问题整理.md."

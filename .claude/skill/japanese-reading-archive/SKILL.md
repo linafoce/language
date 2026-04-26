@@ -1,9 +1,9 @@
 ---
-name: japanese-reading-issue-log
-description: Consolidate grammar points, vocabulary, and memorable expressions from Japanese reading passages into the repository's shared review file with low-noise tables and de-duplication. Use when the user asks to从阅读材料里整理语法和单词, 把当前阅读的难点追加到统一文件, 去重已有条目, or maintain `content/word/阅读问题整理.md` while keeping examples concise and reusable.
+name: japanese-reading-archive
+description: Archive grammar points, vocabulary, and memorable expressions from Japanese reading passages into the repository's shared review file with low-noise tables. Use when the user asks to归档阅读材料里的语法和单词, 把当前阅读的难点追加到统一文件, or maintain `content/word/阅读问题整理.md` while keeping entries concise and reusable.
 ---
 
-# Japanese Reading Issue Log
+# Japanese Reading Archive
 
 Use this skill when the user wants to extract reusable study items from a Japanese reading passage after or during reading analysis.
 
@@ -29,6 +29,7 @@ The output is for later review, not for full teaching notes.
 3. Prefer items that are mid-frequency, easy to forget, easy to misread, or important to understanding the passage.
 4. Append the new passage as one section in `content/word/阅读问题整理.md` unless the user asks for another destination.
 5. Keep the file usable as a long-running accumulation file across many readings.
+6. Do not scan the full archive for duplicates by default.
 
 ## Hard Rules
 
@@ -41,14 +42,13 @@ The output is for later review, not for full teaching notes.
 - Preserve the Japanese expression as it appears in context when possible.
 - If OCR or source text is uncertain, mark it instead of guessing.
 
-## De-duplication Rules
+## Duplicate Handling
 
-- Treat `content/word/阅读问题整理.md` as a cumulative review log, not a per-article archive.
-- Before adding a new item, check whether the same grammar point or word is already present in the file.
-- If the same item already exists with the same core meaning, do not create a duplicate row just because the source article is different.
-- When a repeated item has a genuinely useful new example, prefer updating the existing row later with another example rather than duplicating the item inside the new section.
-- If the same form appears but the meaning or usage is materially different, it may be added as a separate item with a clearly differentiated gloss.
-- If the user explicitly wants per-article independence, follow that request even if it creates repetition.
+- Treat each passage section as mostly independent.
+- Avoid duplicates within the new section itself.
+- Do not read or scan the whole `content/word/阅读问题整理.md` only to check whether a word or grammar point appeared before.
+- If the current context already makes a duplicate obvious, it is fine to skip it.
+- If the user explicitly asks to dedupe against the existing archive, then check the file and dedupe.
 
 ## Default Section Format
 

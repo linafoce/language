@@ -1,4 +1,0 @@
-interface:
-  display_name: "Japanese Reading Issue Log"
-  short_description: "Append Japanese reading items to the shared review log."
-  default_prompt: "Use $japanese-reading-issue-log to add this Japanese reading passage to content/word/阅读问题整理.md."
