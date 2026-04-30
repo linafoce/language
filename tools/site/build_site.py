@@ -489,7 +489,7 @@ __CONTENT__
         if (!/^\d+\b/.test(normalized)) {
           return false;
         }
-        return /[～〜~]|[ぁ-ゖァ-ヺ]{2,}/.test(normalized);
+        return /[～〜~＋+]|[ぁ-ゖァ-ヺ]{2,}/.test(normalized);
       }
 
       function getLeadingNumber(text) {
