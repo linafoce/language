@@ -492,6 +492,11 @@ __CONTENT__
         return /[～〜~＋+]|[ぁ-ゖァ-ヺ]{2,}/.test(normalized);
       }
 
+      function isNumberedTopLevelEntry(text) {
+        const normalized = normalizeHeadingText(text);
+        return /^语法笔记[:：]?\s*\d+\b/.test(normalized) || /^\d+\b/.test(normalized);
+      }
+
       function getLeadingNumber(text) {
         const match = normalizeHeadingText(text).match(/^(\d+)\b/);
         return match ? Number(match[1]) : null;
@@ -519,7 +524,7 @@ __CONTENT__
           return !isDocumentTitleHeading(node, all);
         });
         const h1Entries = filtered.filter(function (node) {
-          return node.tagName === "H1" && looksLikeTopLevelEntry(node.textContent || "");
+          return node.tagName === "H1" && isNumberedTopLevelEntry(node.textContent || "");
         });
         if (h1Entries.length >= 3) {
           return h1Entries;
