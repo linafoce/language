@@ -27,6 +27,18 @@ Format only the material the user provides in the current turn. Do not expand sc
 - If generating a vocabulary list, write all readings in hiragana.
 - Do not invent meanings, examples, or grammar restrictions that are not supported by the source material or obvious context.
 
+## Grammar Review Mode
+
+Use this mode when the user asks to review, check, verify, or correct grammar notes, especially 接续.
+
+- Treat 接续 accuracy as part of the task, not just formatting.
+- For grammar points with multiple meanings or usage patterns, review each use case separately; do not assume one shared 接续 applies to every use.
+- Check the `核心语法` section against the examples in the same entry. If the examples show a valid pattern missing from the 接续 list, add it; if the 接续 list allows a misleading or unnatural pattern, narrow or correct it.
+- When the correct 接续 differs by meaning, split it by use case and write the pattern directly under that use case.
+- Prefer conservative wording such as `常见接续为...` or `一般不用...` when usage varies by register, exam source, or context.
+- If a 接续 issue is clearly wrong, fix it directly when working on a file. If it is uncertain, mark the uncertainty instead of silently guessing.
+- After editing a grammar review, briefly report what was changed and what was only checked.
+
 ## Default Grammar Note Structure
 
 Use this structure unless the user explicitly requests a different format:
