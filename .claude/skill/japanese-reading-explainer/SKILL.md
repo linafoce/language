@@ -1,6 +1,6 @@
 ---
 name: japanese-reading-explainer
-description: Explain Japanese reading passages sentence by sentence in Chinese, with moderate furigana density, key N2/N3 grammar notes, hard-word glosses, and clear sentence meanings. Use when the user asks to逐句解析日语阅读, 看不懂一段文章, 解释每句话是什么意思, 标注较难词语读音, or point out important grammar while keeping the explanation learner-friendly.
+description: Explain Japanese reading passages sentence by sentence in Chinese, with clean bold original sentences, N2/N3 grammar notes, hard-word readings in notes below each sentence, and clear sentence meanings. Use when the user asks to逐句解析日语阅读, 看不懂一段文章, 解释每句话是什么意思, 标注较难词语读音, or point out important grammar while keeping the explanation learner-friendly.
 ---
 
 # Japanese Reading Explainer
@@ -15,7 +15,7 @@ If the user later asks to archive reusable items into the repository note file, 
 Help the learner understand the passage directly by:
 
 - explaining each sentence in order
-- adding furigana to words that are likely to block comprehension
+- keeping the original sentence clean and adding readings for likely blocker words in the notes below it
 - pointing out important grammar, mainly N2/N3-relevant items
 - giving a natural Chinese meaning for each sentence
 - briefly clarifying references such as `これ`, `それ`, `この場合`, or omitted subjects when needed
@@ -26,18 +26,19 @@ Help the learner understand the passage directly by:
 1. Read the visible passage carefully and preserve sentence order.
 2. Split by sentence, not by isolated clauses, unless the sentence is too long to understand without a split.
 3. For each sentence:
-   - show the original sentence
-   - add moderate furigana density
-   - list key words or grammar
+   - show the original sentence in Markdown bold so it is visually distinct from the explanation
+   - keep the original sentence unannotated; do not insert furigana into the original sentence
+   - list key N2/N3-level words, hard words, or grammar below the sentence
+   - include readings in hiragana for vocabulary that may block comprehension
    - explain the sentence meaning in concise Chinese
 4. After the passage, give a short summary of the core logic when useful.
 5. Do not append standalone `重点语法` or `重点单词` sections. Those belong to `$japanese-reading-archive`.
 
-## Furigana Policy
+## Reading Annotation Policy
 
-Use moderate furigana density by default.
+Keep the original Japanese sentence clean by default. Do not add furigana directly inside the original sentence.
 
-Prefer adding furigana to:
+Instead, add readings in the sentence's notes for:
 
 - N2/N3-level words
 - abstract nouns
@@ -45,13 +46,14 @@ Prefer adding furigana to:
 - easy-to-misread kanji words
 - words central to understanding the sentence
 
-Usually do not add furigana to:
+Usually do not add readings for:
 
 - very basic N5/N4 words
 - words whose reading is obvious and unlikely to block the learner
 - repeated easy words after the first appearance in the same explanation
 
-If the user says the furigana is too dense or too sparse, adapt in the next reply.
+Use hiragana readings, not romaji. Prefer a compact note like `語彙（ごい）：词义/文中义`.
+If the user says the readings are too dense or too sparse, adapt in the next reply.
 
 ## Explanation Style
 
@@ -79,14 +81,17 @@ Avoid by default:
 
 ## Output Pattern
 
+Important: Format each original Japanese sentence in Markdown bold, e.g. `**原文句子**`, so it does not blend into the notes.
+Important: Do not put furigana inside the bold original sentence. Put readings in the notes below, especially for N2/N3 words or words likely to block comprehension.
+
 Use a structure close to this:
 
 ```markdown
 **第1句**
-`[原句，带适量注音]`
+**[原句，不加注音]**
 
-- `[词或语法]`：`[简明说明]`
-- `[词或语法]`：`[简明说明]`
+- `词语（よみ）`：`[简明词义 / 文中义]`
+- `[语法]`：`[简明说明]`
 
 意思：
 `[自然中文句意]`
