@@ -1,6 +1,9 @@
 logs/
 *.log
 
+# Local maintenance/audit notes
+tools/audits/
+
 # Obsidian local state
 .obsidian/workspace*.json
 .obsidian/cache/
